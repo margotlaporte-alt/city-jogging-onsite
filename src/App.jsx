@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import ProtectedGuichetPage from "./pages/ProtectedGuichetPage";
+import ProtectedRoute from "./pages/ProtectedRoute";
 import GuichetPage from "./pages/GuichetPage";
 import ImportPreRegistrationsPage from "./pages/ImportPreRegistrationsPage";
 import StatsPage from "./pages/StatsPage";
@@ -11,11 +11,32 @@ function App() {
       <Routes>
         <Route path="/" element={<PublicPage />} />
 
-        <Route element={<ProtectedGuichetPage />}>
-          <Route path="/guichet" element={<GuichetPage />} />
-          <Route path="/import-preinscrits" element={<ImportPreRegistrationsPage />} />
-          <Route path="/stats" element={<StatsPage />} />
-        </Route>
+        <Route
+          path="/guichet"
+          element={
+            <ProtectedRoute>
+              <GuichetPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/import-preinscrits"
+          element={
+            <ProtectedRoute>
+              <ImportPreRegistrationsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/stats"
+          element={
+            <ProtectedRoute>
+              <StatsPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
