@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
+import { Outlet } from "react-router-dom";
 import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged
 } from "firebase/auth";
 import { auth } from "../services/firebase";
-import GuichetPage from "./GuichetPage";
 
 function ProtectedGuichetPage() {
   const [email, setEmail] = useState("");
@@ -58,54 +58,55 @@ function ProtectedGuichetPage() {
     );
   }
 
-  if (user) {
+  if (!user) {
     return (
-      <div>
-        <div style={styles.topBar}>
-          <div style={styles.userInfo}>{user.email}</div>
-          <button onClick={handleLogout} style={styles.logoutButton}>
-            Déconnexion
-          </button>
+      <div style={styles.page}>
+        <div style={styles.card}>
+          <h1 style={styles.title}>Espace organisateur</h1>
+          <p style={styles.subtitle}>
+            Connectez-vous avec votre compte organisateur.
+          </p>
+
+          <form onSubmit={handleSubmit} style={styles.form}>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Adresse email"
+              style={styles.input}
+              autoComplete="username"
+            />
+
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Mot de passe"
+              style={styles.input}
+              autoComplete="current-password"
+            />
+
+            {error && <div style={styles.error}>{error}</div>}
+
+            <button type="submit" style={styles.button} disabled={isLoading}>
+              {isLoading ? "Connexion..." : "Se connecter"}
+            </button>
+          </form>
         </div>
-        <GuichetPage />
       </div>
     );
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Espace organisateur</h1>
-        <p style={styles.subtitle}>
-          Connectez-vous avec votre compte organisateur.
-        </p>
-
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Adresse email"
-            style={styles.input}
-            autoComplete="username"
-          />
-
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Mot de passe"
-            style={styles.input}
-            autoComplete="current-password"
-          />
-
-          {error && <div style={styles.error}>{error}</div>}
-
-          <button type="submit" style={styles.button} disabled={isLoading}>
-            {isLoading ? "Connexion..." : "Se connecter"}
-          </button>
-        </form>
+    <div>
+      <div style={styles.topBar}>
+        <div style={styles.userInfo}>{user.email}</div>
+        <button onClick={handleLogout} style={styles.logoutButton}>
+          Déconnexion
+        </button>
       </div>
+
+      <Outlet />
     </div>
   );
 }

@@ -10,23 +10,12 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<PublicPage />} />
-        <Route path="/guichet" element={<ProtectedGuichetPage><GuichetPage /></ProtectedGuichetPage>} />
-        <Route
-          path="/import-preinscrits"
-          element={
-            <ProtectedGuichetPage>
-              <ImportPreRegistrationsPage />
-            </ProtectedGuichetPage>
-          }
-        />
-        <Route
-          path="/stats"
-          element={
-            <ProtectedGuichetPage>
-              <StatsPage />
-            </ProtectedGuichetPage>
-          }
-        />
+
+        <Route element={<ProtectedGuichetPage />}>
+          <Route path="/guichet" element={<GuichetPage />} />
+          <Route path="/import-preinscrits" element={<ImportPreRegistrationsPage />} />
+          <Route path="/stats" element={<StatsPage />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
