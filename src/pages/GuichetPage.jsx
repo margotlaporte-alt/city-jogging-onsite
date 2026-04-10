@@ -187,8 +187,12 @@ function GuichetPage() {
 
       const matchesStatus =
         statusFilter === "all" ||
-        (statusFilter === "pending" && !item.bibAssigned && !item.isPreRegistered) ||
-        (statusFilter === "assigned" && item.bibAssigned && !item.isPreRegistered) ||
+        (statusFilter === "pending" &&
+          !item.bibAssigned &&
+          !item.isPreRegistered) ||
+        (statusFilter === "assigned" &&
+          item.bibAssigned &&
+          !item.isPreRegistered) ||
         (statusFilter === "pre-registered" && item.isPreRegistered) ||
         (statusFilter === "reissued" && item.status === "reissued");
 
@@ -198,8 +202,7 @@ function GuichetPage() {
       const matchesDistance =
         distanceFilter === "all" || item.distance === distanceFilter;
 
-      const matchesSex =
-        sexFilter === "all" || item.sex === sexFilter;
+      const matchesSex = sexFilter === "all" || item.sex === sexFilter;
 
       return (
         matchesSearch &&
@@ -567,15 +570,27 @@ function GuichetPage() {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={{ ...styles.th, ...styles.stickyCol1 }}>Code</th>
-              <th style={{ ...styles.th, ...styles.stickyCol2 }}>Nom</th>
-              <th style={{ ...styles.th, ...styles.stickyCol3 }}>Prénom</th>
+              <th style={{ ...styles.th, ...styles.stickyCol1, zIndex: 50 }}>
+                Code
+              </th>
+              <th style={{ ...styles.th, ...styles.stickyCol2, zIndex: 50 }}>
+                Nom
+              </th>
+              <th style={{ ...styles.th, ...styles.stickyCol3, zIndex: 50 }}>
+                Prénom
+              </th>
               <th style={styles.th}>Sexe</th>
               <th style={styles.th}>Type</th>
               <th style={styles.th}>Distance</th>
               <th style={styles.th}>Statut</th>
               <th style={styles.th}>Dossard actuel</th>
-              <th style={{ ...styles.th, ...styles.stickyRightAction }}>
+              <th
+                style={{
+                  ...styles.th,
+                  ...styles.stickyRightAction,
+                  zIndex: 50
+                }}
+              >
                 Action
               </th>
             </tr>
@@ -918,175 +933,187 @@ function GuichetPage() {
   );
 
   const renderAllView = () => (
-  <>
-    <div style={styles.allViewTop}>
-      <div style={styles.sectionHeader}>
-        <h2 style={styles.sectionTitle}>Tous les inscrits</h2>
-        <p style={styles.sectionText}>
-          Vue complète des inscriptions avec leur statut et leur numéro de
-          dossard.
-        </p>
+    <>
+      <div style={styles.allViewTop}>
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.sectionTitle}>Tous les inscrits</h2>
+          <p style={styles.sectionText}>
+            Vue complète des inscriptions avec leur statut et leur numéro de
+            dossard.
+          </p>
+        </div>
+
+        <div style={styles.searchExportRow}>
+          <input
+            type="text"
+            placeholder="Rechercher par code, nom, prénom ou dossard"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            style={styles.searchBar}
+          />
+
+          <button style={styles.exportButtonTop} onClick={exportToCsv}>
+            Export CSV
+          </button>
+        </div>
+
+        <div style={styles.filtersRow}>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            style={styles.compactInput}
+          >
+            <option value="all">Tous les statuts</option>
+            <option value="pending">En attente</option>
+            <option value="assigned">Dossard attribué</option>
+            <option value="pre-registered">Pré-inscrit</option>
+            <option value="reissued">Dossard remplacé</option>
+          </select>
+
+          <select
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value)}
+            style={styles.compactInput}
+          >
+            <option value="all">Tous les types</option>
+            <option value="run">Course</option>
+            <option value="nordic_walk">Marche nordique</option>
+            <option value="kids_jogging">Kids Jogging</option>
+          </select>
+
+          <select
+            value={distanceFilter}
+            onChange={(event) => setDistanceFilter(event.target.value)}
+            style={styles.compactInput}
+          >
+            <option value="all">Toutes les distances</option>
+            <option value="1km">1 km</option>
+            <option value="6km">6 km</option>
+            <option value="10km">10 km</option>
+          </select>
+
+          <select
+            value={sexFilter}
+            onChange={(event) => setSexFilter(event.target.value)}
+            style={styles.compactInput}
+          >
+            <option value="all">Tous les sexes</option>
+            <option value="male">Homme</option>
+            <option value="female">Femme</option>
+          </select>
+        </div>
       </div>
 
-      <div style={styles.searchExportRow}>
-        <input
-          type="text"
-          placeholder="Rechercher par code, nom, prénom ou dossard"
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          style={styles.searchBar}
-        />
-
-        <button style={styles.exportButtonTop} onClick={exportToCsv}>
-          Export CSV
-        </button>
-      </div>
-
-      <div style={styles.filtersRow}>
-        <select
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-          style={styles.compactInput}
-        >
-          <option value="all">Tous les statuts</option>
-          <option value="pending">En attente</option>
-          <option value="assigned">Dossard attribué</option>
-          <option value="pre-registered">Pré-inscrit</option>
-          <option value="reissued">Dossard remplacé</option>
-        </select>
-
-        <select
-          value={typeFilter}
-          onChange={(event) => setTypeFilter(event.target.value)}
-          style={styles.compactInput}
-        >
-          <option value="all">Tous les types</option>
-          <option value="run">Course</option>
-          <option value="nordic_walk">Marche nordique</option>
-          <option value="kids_jogging">Kids Jogging</option>
-        </select>
-
-        <select
-          value={distanceFilter}
-          onChange={(event) => setDistanceFilter(event.target.value)}
-          style={styles.compactInput}
-        >
-          <option value="all">Toutes les distances</option>
-          <option value="1km">1 km</option>
-          <option value="6km">6 km</option>
-          <option value="10km">10 km</option>
-        </select>
-
-        <select
-          value={sexFilter}
-          onChange={(event) => setSexFilter(event.target.value)}
-          style={styles.compactInput}
-        >
-          <option value="all">Tous les sexes</option>
-          <option value="male">Homme</option>
-          <option value="female">Femme</option>
-        </select>
-      </div>
-    </div>
-
-    <div style={styles.tableWrapper}>
-      <table style={styles.table}>
-        <thead>
-          <tr>
-            <th style={{ ...styles.th, ...styles.stickyCol1 }}>Code</th>
-            <th style={{ ...styles.th, ...styles.stickyCol2 }}>Nom</th>
-            <th style={{ ...styles.th, ...styles.stickyCol3 }}>Prénom</th>
-            <th style={styles.th}>Email</th>
-            <th style={styles.th}>Nationalité</th>
-            <th style={styles.th}>Club</th>
-            <th style={styles.th}>Sexe</th>
-            <th style={styles.th}>Naissance</th>
-            <th style={styles.th}>Âge</th>
-            <th style={styles.th}>Resp. légal</th>
-            <th style={styles.th}>Type</th>
-            <th style={styles.th}>Distance</th>
-            <th style={styles.th}>Dossard actuel</th>
-            <th style={styles.th}>Dossard initial</th>
-            <th style={styles.th}>Statut</th>
-            <th style={{ ...styles.th, ...styles.stickyRightDelete }}>
-              Action
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredAllRegistrations.length === 0 ? (
+      <div style={styles.tableWrapper}>
+        <table style={styles.table}>
+          <thead>
             <tr>
-              <td colSpan="16" style={styles.emptyCell}>
-                Aucun inscrit trouvé.
-              </td>
+              <th style={{ ...styles.th, ...styles.stickyCol1, zIndex: 50 }}>
+                Code
+              </th>
+              <th style={{ ...styles.th, ...styles.stickyCol2, zIndex: 50 }}>
+                Nom
+              </th>
+              <th style={{ ...styles.th, ...styles.stickyCol3, zIndex: 50 }}>
+                Prénom
+              </th>
+              <th style={styles.th}>Email</th>
+              <th style={styles.th}>Nationalité</th>
+              <th style={styles.th}>Club</th>
+              <th style={styles.th}>Sexe</th>
+              <th style={styles.th}>Naissance</th>
+              <th style={styles.th}>Âge</th>
+              <th style={styles.th}>Resp. légal</th>
+              <th style={styles.th}>Type</th>
+              <th style={styles.th}>Distance</th>
+              <th style={styles.th}>Dossard actuel</th>
+              <th style={styles.th}>Dossard initial</th>
+              <th style={styles.th}>Statut</th>
+              <th
+                style={{
+                  ...styles.th,
+                  ...styles.stickyRightDelete,
+                  zIndex: 50
+                }}
+              >
+                Action
+              </th>
             </tr>
-          ) : (
-            filteredAllRegistrations.map((registration) => (
-              <tr key={registration.id}>
-                <td style={{ ...styles.td, ...styles.stickyCol1 }}>
-                  {registration.registrationCode}
-                </td>
-
-                <td style={{ ...styles.td, ...styles.stickyCol2 }}>
-                  <div style={styles.nameCell}>
-                    <span>{registration.lastName}</span>
-                    {renderPreRegistrationBadge(registration)}
-                  </div>
-                </td>
-
-                <td style={{ ...styles.td, ...styles.stickyCol3 }}>
-                  {registration.firstName}
-                </td>
-
-                <td style={styles.td}>{registration.email || "-"}</td>
-                <td style={styles.td}>{registration.nationality || "-"}</td>
-                <td style={styles.td}>{registration.club || "-"}</td>
-
-                <td style={styles.td}>
-                  {registration.sex === "male"
-                    ? "Homme"
-                    : registration.sex === "female"
-                    ? "Femme"
-                    : "-"}
-                </td>
-
-                <td style={styles.td}>{registration.birthDate || "-"}</td>
-                <td style={styles.td}>
-                  {registration.age !== undefined && registration.age !== null
-                    ? registration.age
-                    : "-"}
-                </td>
-                <td style={styles.td}>{registration.legalGuardian || "-"}</td>
-
-                <td style={styles.td}>{getReadableType(registration)}</td>
-                <td style={styles.td}>{registration.distance || "-"}</td>
-                <td style={styles.td}>{registration.bibNumber || "-"}</td>
-                <td style={styles.td}>
-                  {registration.originalBibNumber || "-"}
-                </td>
-                <td style={styles.td}>{getReadableStatus(registration)}</td>
-
-                <td style={{ ...styles.td, ...styles.stickyRightDelete }}>
-                  <button
-                    style={styles.deleteButton}
-                    onClick={() =>
-                      handleDeleteRegistration(
-                        registration.id,
-                        registration.registrationCode
-                      )
-                    }
-                  >
-                    Supprimer
-                  </button>
+          </thead>
+          <tbody>
+            {filteredAllRegistrations.length === 0 ? (
+              <tr>
+                <td colSpan="16" style={styles.emptyCell}>
+                  Aucun inscrit trouvé.
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  </>
-);
+            ) : (
+              filteredAllRegistrations.map((registration) => (
+                <tr key={registration.id}>
+                  <td style={{ ...styles.td, ...styles.stickyCol1 }}>
+                    {registration.registrationCode}
+                  </td>
+
+                  <td style={{ ...styles.td, ...styles.stickyCol2 }}>
+                    <div style={styles.nameCell}>
+                      <span>{registration.lastName}</span>
+                      {renderPreRegistrationBadge(registration)}
+                    </div>
+                  </td>
+
+                  <td style={{ ...styles.td, ...styles.stickyCol3 }}>
+                    {registration.firstName}
+                  </td>
+
+                  <td style={styles.td}>{registration.email || "-"}</td>
+                  <td style={styles.td}>{registration.nationality || "-"}</td>
+                  <td style={styles.td}>{registration.club || "-"}</td>
+
+                  <td style={styles.td}>
+                    {registration.sex === "male"
+                      ? "Homme"
+                      : registration.sex === "female"
+                      ? "Femme"
+                      : "-"}
+                  </td>
+
+                  <td style={styles.td}>{registration.birthDate || "-"}</td>
+                  <td style={styles.td}>
+                    {registration.age !== undefined && registration.age !== null
+                      ? registration.age
+                      : "-"}
+                  </td>
+                  <td style={styles.td}>{registration.legalGuardian || "-"}</td>
+
+                  <td style={styles.td}>{getReadableType(registration)}</td>
+                  <td style={styles.td}>{registration.distance || "-"}</td>
+                  <td style={styles.td}>{registration.bibNumber || "-"}</td>
+                  <td style={styles.td}>
+                    {registration.originalBibNumber || "-"}
+                  </td>
+                  <td style={styles.td}>{getReadableStatus(registration)}</td>
+
+                  <td style={{ ...styles.td, ...styles.stickyRightDelete }}>
+                    <button
+                      style={styles.deleteButton}
+                      onClick={() =>
+                        handleDeleteRegistration(
+                          registration.id,
+                          registration.registrationCode
+                        )
+                      }
+                    >
+                      Supprimer
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
 
   return (
     <div style={styles.page}>
@@ -1183,12 +1210,12 @@ const styles = {
     gap: "20px"
   },
   allViewTop: {
-  position: "sticky",
-  top: 0,
-  zIndex: 20,
-  background: "white",
-  paddingBottom: "12px"
-},
+    position: "sticky",
+    top: 0,
+    zIndex: 20,
+    background: "white",
+    paddingBottom: "12px"
+  },
   sidebar: {
     background: "white",
     borderRadius: "20px",
@@ -1425,15 +1452,15 @@ const styles = {
     fontWeight: 700,
     fontSize: "13px"
   },
-tableWrapper: {
-  overflowX: "auto",
-  overflowY: "auto",
-  marginTop: "8px",
-  border: "1px solid #e4e7ec",
-  borderRadius: "12px",
-  maxHeight: "65vh",
-  position: "relative"
-},
+  tableWrapper: {
+    overflowX: "auto",
+    overflowY: "auto",
+    marginTop: "8px",
+    border: "1px solid #e4e7ec",
+    borderRadius: "12px",
+    maxHeight: "65vh",
+    position: "relative"
+  },
   table: {
     width: "max-content",
     minWidth: "100%",
@@ -1453,7 +1480,7 @@ tableWrapper: {
     background: "white",
     position: "sticky",
     top: 0,
-    zIndex: 6
+    zIndex: 30
   },
   td: {
     padding: "8px 8px",
