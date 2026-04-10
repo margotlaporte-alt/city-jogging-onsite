@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   addDoc,
@@ -6,11 +6,8 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
-  orderBy,
-  query,
   runTransaction,
-  updateDoc,
-  where
+  updateDoc
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { nationalityOptions, clubsMain, clubsSecondary } from "../data/options";
@@ -19,11 +16,13 @@ const ACTIVE_EVENT_EDITION = "city-jogging-2025";
 
 function GuichetPage() {
   const navigate = useNavigate();
+  const tableWrapperRef = useRef(null);
 
   const [activeView, setActiveView] = useState("assign");
   const [registrations, setRegistrations] = useState([]);
   const [reassignMode, setReassignMode] = useState({});
-  const [searchTerm, setSearchTerm] = useState("");
+  const [codeSearchTerm, setCodeSearchTerm] = useState("");
+  const [textSearchTerm, setTextSearchTerm] = useState("");
   const [bibInputs, setBibInputs] = useState({});
   const [feedbackMessage, setFeedbackMessage] = useState("");
 
@@ -51,22 +50,54 @@ function GuichetPage() {
   const [createFormError, setCreateFormError] = useState("");
 
   useEffect(() => {
-    const registrationsQuery = query(
+    const unsubscribe = onSnapshot(
       collection(db, "onsite_registrations"),
-      where("eventEdition", "==", ACTIVE_EVENT_EDITION),
-      orderBy("registrationCode", "desc")
-    );
+      (snapshot) => {
+        const data = snapshot.docs
+          .map((documentSnapshot) => ({
+            id: documentSnapshot.id,
+            ...documentSnapshot.data()
+          }))
+          .filter((item) => item.eventEdition === ACTIVE_EVENT_EDITION)
+          .sort((a, b) => {
+            const codeA = a.registrationCode || "";
+            const codeB = b.registrationCode || "";
+            return codeB.localeCompare(codeA, undefined, { numeric: true });
+          });
 
-    const unsubscribe = onSnapshot(registrationsQuery, (snapshot) => {
-      const data = snapshot.docs.map((documentSnapshot) => ({
-        id: documentSnapshot.id,
-        ...documentSnapshot.data()
-      }));
-      setRegistrations(data);
-    });
+        setRegistrations(data);
+      },
+      (error) => {
+        console.error("Erreur chargement guichet :", error);
+      }
+    );
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!tableWrapperRef.current) return;
+
+    const el = tableWrapperRef.current;
+
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        if (!el) return;
+        el.scrollLeft = el.scrollLeft + 1;
+        el.scrollLeft = el.scrollLeft - 1;
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      el._raf2 = raf2;
+    });
+
+    el._raf1 = raf1;
+
+    return () => {
+      if (el._raf1) cancelAnimationFrame(el._raf1);
+      if (el._raf2) cancelAnimationFrame(el._raf2);
+    };
+  }, [activeView, registrations.length]);
 
   const calculateAge = (birthDate) => {
     if (!birthDate) return null;
@@ -89,6 +120,36 @@ function GuichetPage() {
     return age;
   };
 
+  const normalizeRegistrationCode = (value) => {
+    const raw = String(value || "").trim();
+
+    if (!raw) return "";
+
+    if (/^\d+$/.test(raw)) {
+      return `CJ-${raw.padStart(4, "0")}`.toLowerCase();
+    }
+
+    const match = raw.match(/^cj[-\s]?(\d+)$/i);
+    if (match) {
+      return `CJ-${match[1].padStart(4, "0")}`.toLowerCase();
+    }
+
+    return raw.toLowerCase();
+  };
+
+  const normalizedCodeSearch = useMemo(
+    () => normalizeRegistrationCode(codeSearchTerm),
+    [codeSearchTerm]
+  );
+
+  const normalizedTextSearch = useMemo(
+    () => textSearchTerm.trim().toLowerCase(),
+    [textSearchTerm]
+  );
+
+  const hasAnySearch =
+    normalizedCodeSearch !== "" || normalizedTextSearch !== "";
+
   const createAge = calculateAge(newForm.birthDate);
   const createIsMinor = createAge !== null && createAge < 18;
   const createIsUnderFive = createAge !== null && createAge < 5;
@@ -100,8 +161,13 @@ function GuichetPage() {
         ...prev,
         distance: "1km"
       }));
+    } else if (newForm.distance === "1km") {
+      setNewForm((prev) => ({
+        ...prev,
+        distance: "6km"
+      }));
     }
-  }, [newForm.participationType]);
+  }, [newForm.participationType, newForm.distance]);
 
   useEffect(() => {
     if (!newForm.birthDate) {
@@ -146,44 +212,49 @@ function GuichetPage() {
   };
 
   const filteredAssignableRegistrations = useMemo(() => {
-    const normalized = searchTerm.trim().toLowerCase();
-
-    if (!normalized) {
-      return registrations.filter(
-        (item) => !item.bibAssigned && !item.isPreRegistered
-      );
-    }
-
     return registrations.filter((item) => {
+      if (!hasAnySearch && (item.bibAssigned || item.isPreRegistered)) {
+        return false;
+      }
+
       const code = (item.registrationCode || "").toLowerCase();
       const lastName = (item.lastName || "").toLowerCase();
       const firstName = (item.firstName || "").toLowerCase();
       const bib = String(item.bibNumber || "").toLowerCase();
 
-      return (
-        code.includes(normalized) ||
-        lastName.includes(normalized) ||
-        firstName.includes(normalized) ||
-        bib.includes(normalized)
-      );
+      const matchesCode =
+        !normalizedCodeSearch || code === normalizedCodeSearch;
+
+      const matchesText =
+        !normalizedTextSearch ||
+        lastName.includes(normalizedTextSearch) ||
+        firstName.includes(normalizedTextSearch) ||
+        bib.includes(normalizedTextSearch);
+
+      return matchesCode && matchesText;
     });
-  }, [registrations, searchTerm]);
+  }, [
+    registrations,
+    hasAnySearch,
+    normalizedCodeSearch,
+    normalizedTextSearch
+  ]);
 
   const filteredAllRegistrations = useMemo(() => {
-    const normalized = searchTerm.trim().toLowerCase();
-
     return registrations.filter((item) => {
       const code = (item.registrationCode || "").toLowerCase();
       const lastName = (item.lastName || "").toLowerCase();
       const firstName = (item.firstName || "").toLowerCase();
       const bib = String(item.bibNumber || "").toLowerCase();
 
-      const matchesSearch =
-        !normalized ||
-        code.includes(normalized) ||
-        lastName.includes(normalized) ||
-        firstName.includes(normalized) ||
-        bib.includes(normalized);
+      const matchesCode =
+        !normalizedCodeSearch || code === normalizedCodeSearch;
+
+      const matchesText =
+        !normalizedTextSearch ||
+        lastName.includes(normalizedTextSearch) ||
+        firstName.includes(normalizedTextSearch) ||
+        bib.includes(normalizedTextSearch);
 
       const matchesStatus =
         statusFilter === "all" ||
@@ -202,7 +273,8 @@ function GuichetPage() {
         sexFilter === "all" || item.sex === sexFilter;
 
       return (
-        matchesSearch &&
+        matchesCode &&
+        matchesText &&
         matchesStatus &&
         matchesType &&
         matchesDistance &&
@@ -211,7 +283,8 @@ function GuichetPage() {
     });
   }, [
     registrations,
-    searchTerm,
+    normalizedCodeSearch,
+    normalizedTextSearch,
     statusFilter,
     typeFilter,
     distanceFilter,
@@ -473,8 +546,8 @@ function GuichetPage() {
           ? "Pré-inscrit / dossard remplacé"
           : "Pré-inscrit"
         : item.bibAssigned
-        ? "Dossard attribué"
-        : "En attente"
+          ? "Dossard attribué"
+          : "En attente"
     ]);
 
     const csvContent = [headers, ...rows]
@@ -512,8 +585,8 @@ function GuichetPage() {
     return registration.participationType === "run"
       ? "Course"
       : registration.participationType === "nordic_walk"
-      ? "Marche nordique"
-      : "Kids Jogging";
+        ? "Marche nordique"
+        : "Kids Jogging";
   };
 
   const getReadableStatus = (registration) => {
@@ -549,21 +622,40 @@ function GuichetPage() {
         </p>
       </div>
 
-      <input
-        type="text"
-        placeholder="Rechercher par code, nom, prénom ou dossard"
-        value={searchTerm}
-        onChange={(event) => setSearchTerm(event.target.value)}
-        style={styles.searchBar}
-      />
+      <div style={styles.searchRow}>
+        <div style={styles.searchField}>
+          <input
+            type="text"
+            placeholder="Code ex. 19 ou CJ-0019"
+            value={codeSearchTerm}
+            onChange={(event) => setCodeSearchTerm(event.target.value)}
+            style={styles.searchBar}
+          />
+          {codeSearchTerm.trim() && (
+            <div style={styles.searchHint}>
+              Recherche code : {normalizeRegistrationCode(codeSearchTerm).toUpperCase()}
+            </div>
+          )}
+        </div>
+
+        <div style={styles.searchField}>
+          <input
+            type="text"
+            placeholder="Recherche texte : nom, prénom ou dossard"
+            value={textSearchTerm}
+            onChange={(event) => setTextSearchTerm(event.target.value)}
+            style={styles.searchBar}
+          />
+        </div>
+      </div>
 
       <div style={styles.counterBox}>
-        {searchTerm.trim()
+        {hasAnySearch
           ? `${filteredAssignableRegistrations.length} résultat(s)`
           : `${filteredAssignableRegistrations.length} inscrit(s) à traiter`}
       </div>
 
-      <div style={styles.tableWrapper}>
+      <div ref={tableWrapperRef} style={styles.tableWrapper}>
         <table style={styles.table}>
           <thead>
             <tr>
@@ -613,8 +705,8 @@ function GuichetPage() {
                       {registration.sex === "male"
                         ? "Homme"
                         : registration.sex === "female"
-                        ? "Femme"
-                        : "-"}
+                          ? "Femme"
+                          : "-"}
                     </td>
 
                     <td style={styles.td}>{getReadableType(registration)}</td>
@@ -928,17 +1020,34 @@ function GuichetPage() {
       </div>
 
       <div style={styles.searchExportRow}>
-        <input
-          type="text"
-          placeholder="Rechercher par code, nom, prénom ou dossard"
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          style={styles.searchBar}
-        />
+        <div style={styles.searchField}>
+          <input
+            type="text"
+            placeholder="Code ex. 19 ou CJ-0019"
+            value={codeSearchTerm}
+            onChange={(event) => setCodeSearchTerm(event.target.value)}
+            style={styles.searchBar}
+          />
+          {codeSearchTerm.trim() && (
+            <div style={styles.searchHint}>
+              Recherche code : {normalizeRegistrationCode(codeSearchTerm).toUpperCase()}
+            </div>
+          )}
+        </div>
 
         <button style={styles.exportButtonTop} onClick={exportToCsv}>
           Export CSV
         </button>
+      </div>
+
+      <div style={styles.searchRowSingle}>
+        <input
+          type="text"
+          placeholder="Recherche texte : nom, prénom ou dossard"
+          value={textSearchTerm}
+          onChange={(event) => setTextSearchTerm(event.target.value)}
+          style={styles.searchBar}
+        />
       </div>
 
       <div style={styles.filtersRow}>
@@ -987,7 +1096,7 @@ function GuichetPage() {
         </select>
       </div>
 
-      <div style={styles.tableWrapper}>
+      <div ref={tableWrapperRef} style={styles.tableWrapper}>
         <table style={styles.table}>
           <thead>
             <tr>
@@ -1044,8 +1153,8 @@ function GuichetPage() {
                     {registration.sex === "male"
                       ? "Homme"
                       : registration.sex === "female"
-                      ? "Femme"
-                      : "-"}
+                        ? "Femme"
+                        : "-"}
                   </td>
 
                   <td style={styles.td}>{registration.birthDate || "-"}</td>
@@ -1294,11 +1403,31 @@ const styles = {
     boxSizing: "border-box",
     minWidth: 0
   },
+  searchRow: {
+    display: "grid",
+    gridTemplateColumns: "minmax(220px, 280px) minmax(260px, 1fr)",
+    gap: "12px",
+    alignItems: "start"
+  },
+  searchRowSingle: {
+    marginBottom: "12px"
+  },
+  searchField: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    minWidth: 0
+  },
+  searchHint: {
+    fontSize: "12px",
+    color: "#667085",
+    paddingLeft: "2px"
+  },
   searchExportRow: {
     display: "grid",
     gridTemplateColumns: "minmax(260px, 1fr) 180px",
     gap: "12px",
-    alignItems: "center",
+    alignItems: "start",
     marginBottom: "12px"
   },
   filtersRow: {
@@ -1422,7 +1551,8 @@ const styles = {
     marginTop: "14px",
     border: "1px solid #e4e7ec",
     borderRadius: "12px",
-    maxHeight: "65vh"
+    maxHeight: "65vh",
+    WebkitOverflowScrolling: "touch"
   },
   table: {
     width: "max-content",
