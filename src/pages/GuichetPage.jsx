@@ -5,6 +5,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -26,6 +27,7 @@ function GuichetPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [bibInputs, setBibInputs] = useState({});
   const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(true);
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -50,24 +52,66 @@ function GuichetPage() {
 
   const [createFormError, setCreateFormError] = useState("");
 
-  useEffect(() => {
-    const registrationsQuery = query(
-      collection(db, "onsite_registrations"),
-      where("eventEdition", "==", ACTIVE_EVENT_EDITION),
-      orderBy("registrationCode", "desc")
-    );
+useEffect(() => {
+  let isMounted = true;
 
-    const unsubscribe = onSnapshot(registrationsQuery, (snapshot) => {
+  const registrationsQuery = query(
+    collection(db, "onsite_registrations"),
+    where("eventEdition", "==", ACTIVE_EVENT_EDITION),
+    orderBy("registrationCode", "desc")
+  );
+
+  const loadInitialData = async () => {
+    try {
+      setIsLoadingRegistrations(true);
+
+      const snapshot = await getDocs(registrationsQuery);
+
+      if (!isMounted) return;
+
       const data = snapshot.docs.map((documentSnapshot) => ({
         id: documentSnapshot.id,
         ...documentSnapshot.data()
       }));
 
       setRegistrations(data);
-    });
+    } catch (error) {
+      console.error("Erreur chargement initial inscriptions :", error);
+    } finally {
+      if (isMounted) {
+        setIsLoadingRegistrations(false);
+      }
+    }
+  };
 
-    return () => unsubscribe();
-  }, []);
+  loadInitialData();
+
+  const unsubscribe = onSnapshot(
+    registrationsQuery,
+    (snapshot) => {
+      if (!isMounted) return;
+
+      const data = snapshot.docs.map((documentSnapshot) => ({
+        id: documentSnapshot.id,
+        ...documentSnapshot.data()
+      }));
+
+      setRegistrations(data);
+      setIsLoadingRegistrations(false);
+    },
+    (error) => {
+      console.error("Erreur écoute temps réel inscriptions :", error);
+      if (isMounted) {
+        setIsLoadingRegistrations(false);
+      }
+    }
+  );
+
+  return () => {
+    isMounted = false;
+    unsubscribe();
+  };
+}, []);
 
   const calculateAge = (birthDate) => {
     if (!birthDate) return null;
@@ -585,14 +629,20 @@ function GuichetPage() {
             </tr>
           </thead>
 
-          <tbody>
-            {filteredAssignableRegistrations.length === 0 ? (
-              <tr>
-                <td colSpan="9" style={styles.emptyCell}>
-                  Aucun inscrit trouvé.
-                </td>
-              </tr>
-            ) : (
+        <tbody>
+  {isLoadingRegistrations ? (
+    <tr>
+      <td colSpan="9" style={styles.emptyCell}>
+        Chargement des inscrits...
+      </td>
+    </tr>
+  ) : filteredAssignableRegistrations.length === 0 ? (
+    <tr>
+      <td colSpan="9" style={styles.emptyCell}>
+        Aucun inscrit trouvé.
+      </td>
+    </tr>
+  ) : (
               filteredAssignableRegistrations.map((registration) => {
                 const currentInput = bibInputs[registration.id] || "";
                 const bibConflict = getBibConflict(registration, currentInput);
@@ -1019,14 +1069,20 @@ function GuichetPage() {
             </tr>
           </thead>
 
-          <tbody>
-            {filteredAllRegistrations.length === 0 ? (
-              <tr>
-                <td colSpan="16" style={styles.emptyCell}>
-                  Aucun inscrit trouvé.
-                </td>
-              </tr>
-            ) : (
+        <tbody>
+  {isLoadingRegistrations ? (
+    <tr>
+      <td colSpan="16" style={styles.emptyCell}>
+        Chargement des inscrits...
+      </td>
+    </tr>
+  ) : filteredAllRegistrations.length === 0 ? (
+    <tr>
+      <td colSpan="16" style={styles.emptyCell}>
+        Aucun inscrit trouvé.
+      </td>
+    </tr>
+  ) : (
               filteredAllRegistrations.map((registration) => (
                 <tr key={registration.id}>
                   <td style={{ ...styles.td, ...styles.stickyCol1 }}>
