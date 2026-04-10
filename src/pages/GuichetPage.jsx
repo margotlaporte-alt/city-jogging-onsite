@@ -6,8 +6,11 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
+  orderBy,
+  query,
   runTransaction,
-  updateDoc
+  updateDoc,
+  where
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { nationalityOptions, clubsMain, clubsSecondary } from "../data/options";
@@ -23,7 +26,6 @@ function GuichetPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [bibInputs, setBibInputs] = useState({});
   const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(true);
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -49,31 +51,19 @@ function GuichetPage() {
   const [createFormError, setCreateFormError] = useState("");
 
   useEffect(() => {
-    setIsLoadingRegistrations(true);
-
-    const unsubscribe = onSnapshot(
+    const registrationsQuery = query(
       collection(db, "onsite_registrations"),
-      (snapshot) => {
-        const data = snapshot.docs
-          .map((documentSnapshot) => ({
-            id: documentSnapshot.id,
-            ...documentSnapshot.data()
-          }))
-          .filter((item) => item.eventEdition === ACTIVE_EVENT_EDITION)
-          .sort((a, b) => {
-            const aCode = a.registrationCode || "";
-            const bCode = b.registrationCode || "";
-            return bCode.localeCompare(aCode, undefined, { numeric: true });
-          });
-
-        setRegistrations(data);
-        setIsLoadingRegistrations(false);
-      },
-      (error) => {
-        console.error("Erreur chargement inscriptions :", error);
-        setIsLoadingRegistrations(false);
-      }
+      where("eventEdition", "==", ACTIVE_EVENT_EDITION),
+      orderBy("registrationCode", "desc")
     );
+
+    const unsubscribe = onSnapshot(registrationsQuery, (snapshot) => {
+      const data = snapshot.docs.map((documentSnapshot) => ({
+        id: documentSnapshot.id,
+        ...documentSnapshot.data()
+      }));
+      setRegistrations(data);
+    });
 
     return () => unsubscribe();
   }, []);
@@ -197,12 +187,8 @@ function GuichetPage() {
 
       const matchesStatus =
         statusFilter === "all" ||
-        (statusFilter === "pending" &&
-          !item.bibAssigned &&
-          !item.isPreRegistered) ||
-        (statusFilter === "assigned" &&
-          item.bibAssigned &&
-          !item.isPreRegistered) ||
+        (statusFilter === "pending" && !item.bibAssigned && !item.isPreRegistered) ||
+        (statusFilter === "assigned" && item.bibAssigned && !item.isPreRegistered) ||
         (statusFilter === "pre-registered" && item.isPreRegistered) ||
         (statusFilter === "reissued" && item.status === "reissued");
 
@@ -212,7 +198,8 @@ function GuichetPage() {
       const matchesDistance =
         distanceFilter === "all" || item.distance === distanceFilter;
 
-      const matchesSex = sexFilter === "all" || item.sex === sexFilter;
+      const matchesSex =
+        sexFilter === "all" || item.sex === sexFilter;
 
       return (
         matchesSearch &&
@@ -578,30 +565,23 @@ function GuichetPage() {
 
       <div style={styles.tableWrapper}>
         <table style={styles.table}>
-          <thead style={styles.thead}>
+          <thead>
             <tr>
-              <th style={{ ...styles.th, ...styles.thStickyCol1 }}>Code</th>
-              <th style={{ ...styles.th, ...styles.thStickyCol2 }}>Nom</th>
-              <th style={{ ...styles.th, ...styles.thStickyCol3 }}>Prénom</th>
+              <th style={{ ...styles.th, ...styles.stickyCol1 }}>Code</th>
+              <th style={{ ...styles.th, ...styles.stickyCol2 }}>Nom</th>
+              <th style={{ ...styles.th, ...styles.stickyCol3 }}>Prénom</th>
               <th style={styles.th}>Sexe</th>
               <th style={styles.th}>Type</th>
               <th style={styles.th}>Distance</th>
               <th style={styles.th}>Statut</th>
               <th style={styles.th}>Dossard actuel</th>
-              <th style={{ ...styles.th, ...styles.thStickyRightAction }}>
+              <th style={{ ...styles.th, ...styles.stickyRightAction }}>
                 Action
               </th>
             </tr>
           </thead>
-
           <tbody>
-            {isLoadingRegistrations ? (
-              <tr>
-                <td colSpan="9" style={styles.emptyCell}>
-                  Chargement des inscrits...
-                </td>
-              </tr>
-            ) : filteredAssignableRegistrations.length === 0 ? (
+            {filteredAssignableRegistrations.length === 0 ? (
               <tr>
                 <td colSpan="9" style={styles.emptyCell}>
                   Aucun inscrit trouvé.
@@ -939,83 +919,81 @@ function GuichetPage() {
 
   const renderAllView = () => (
     <>
-      <div style={styles.allViewTop}>
-        <div style={styles.sectionHeader}>
-          <h2 style={styles.sectionTitle}>Tous les inscrits</h2>
-          <p style={styles.sectionText}>
-            Vue complète des inscriptions avec leur statut et leur numéro de
-            dossard.
-          </p>
-        </div>
+      <div style={styles.sectionHeader}>
+        <h2 style={styles.sectionTitle}>Tous les inscrits</h2>
+        <p style={styles.sectionText}>
+          Vue complète des inscriptions avec leur statut et leur numéro de
+          dossard.
+        </p>
+      </div>
 
-        <div style={styles.searchExportRow}>
-          <input
-            type="text"
-            placeholder="Rechercher par code, nom, prénom ou dossard"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            style={styles.searchBar}
-          />
+      <div style={styles.searchExportRow}>
+        <input
+          type="text"
+          placeholder="Rechercher par code, nom, prénom ou dossard"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          style={styles.searchBar}
+        />
 
-          <button style={styles.exportButtonTop} onClick={exportToCsv}>
-            Export CSV
-          </button>
-        </div>
+        <button style={styles.exportButtonTop} onClick={exportToCsv}>
+          Export CSV
+        </button>
+      </div>
 
-        <div style={styles.filtersRow}>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            style={styles.compactInput}
-          >
-            <option value="all">Tous les statuts</option>
-            <option value="pending">En attente</option>
-            <option value="assigned">Dossard attribué</option>
-            <option value="pre-registered">Pré-inscrit</option>
-            <option value="reissued">Dossard remplacé</option>
-          </select>
+      <div style={styles.filtersRow}>
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          style={styles.compactInput}
+        >
+          <option value="all">Tous les statuts</option>
+          <option value="pending">En attente</option>
+          <option value="assigned">Dossard attribué</option>
+          <option value="pre-registered">Pré-inscrit</option>
+          <option value="reissued">Dossard remplacé</option>
+        </select>
 
-          <select
-            value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value)}
-            style={styles.compactInput}
-          >
-            <option value="all">Tous les types</option>
-            <option value="run">Course</option>
-            <option value="nordic_walk">Marche nordique</option>
-            <option value="kids_jogging">Kids Jogging</option>
-          </select>
+        <select
+          value={typeFilter}
+          onChange={(event) => setTypeFilter(event.target.value)}
+          style={styles.compactInput}
+        >
+          <option value="all">Tous les types</option>
+          <option value="run">Course</option>
+          <option value="nordic_walk">Marche nordique</option>
+          <option value="kids_jogging">Kids Jogging</option>
+        </select>
 
-          <select
-            value={distanceFilter}
-            onChange={(event) => setDistanceFilter(event.target.value)}
-            style={styles.compactInput}
-          >
-            <option value="all">Toutes les distances</option>
-            <option value="1km">1 km</option>
-            <option value="6km">6 km</option>
-            <option value="10km">10 km</option>
-          </select>
+        <select
+          value={distanceFilter}
+          onChange={(event) => setDistanceFilter(event.target.value)}
+          style={styles.compactInput}
+        >
+          <option value="all">Toutes les distances</option>
+          <option value="1km">1 km</option>
+          <option value="6km">6 km</option>
+          <option value="10km">10 km</option>
+        </select>
 
-          <select
-            value={sexFilter}
-            onChange={(event) => setSexFilter(event.target.value)}
-            style={styles.compactInput}
-          >
-            <option value="all">Tous les sexes</option>
-            <option value="male">Homme</option>
-            <option value="female">Femme</option>
-          </select>
-        </div>
+        <select
+          value={sexFilter}
+          onChange={(event) => setSexFilter(event.target.value)}
+          style={styles.compactInput}
+        >
+          <option value="all">Tous les sexes</option>
+          <option value="male">Homme</option>
+          <option value="female">Femme</option>
+        </select>
       </div>
 
       <div style={styles.tableWrapper}>
         <table style={styles.table}>
-          <thead style={styles.thead}>
+          <thead>
             <tr>
-              <th style={{ ...styles.th, ...styles.thStickyCol1 }}>Code</th>
-              <th style={{ ...styles.th, ...styles.thStickyCol2 }}>Nom</th>
-              <th style={{ ...styles.th, ...styles.thStickyCol3 }}>Prénom</th>
+              <th style={{ ...styles.th, ...styles.stickyCol1 }}>Code</th>
+              <th style={{ ...styles.th, ...styles.stickyCol2 }}>Nom</th>
+              <th style={{ ...styles.th, ...styles.stickyCol3 }}>Prénom</th>
               <th style={styles.th}>Email</th>
               <th style={styles.th}>Nationalité</th>
               <th style={styles.th}>Club</th>
@@ -1028,20 +1006,13 @@ function GuichetPage() {
               <th style={styles.th}>Dossard actuel</th>
               <th style={styles.th}>Dossard initial</th>
               <th style={styles.th}>Statut</th>
-              <th style={{ ...styles.th, ...styles.thStickyRightDelete }}>
+              <th style={{ ...styles.th, ...styles.stickyRightDelete }}>
                 Action
               </th>
             </tr>
           </thead>
-
           <tbody>
-            {isLoadingRegistrations ? (
-              <tr>
-                <td colSpan="16" style={styles.emptyCell}>
-                  Chargement des inscrits...
-                </td>
-              </tr>
-            ) : filteredAllRegistrations.length === 0 ? (
+            {filteredAllRegistrations.length === 0 ? (
               <tr>
                 <td colSpan="16" style={styles.emptyCell}>
                   Aucun inscrit trouvé.
@@ -1187,11 +1158,9 @@ function GuichetPage() {
             <div style={styles.feedback}>{feedbackMessage}</div>
           )}
 
-          <div key={activeView}>
-            {activeView === "assign" && renderAssignView()}
-            {activeView === "create" && renderCreateView()}
-            {activeView === "all" && renderAllView()}
-          </div>
+          {activeView === "assign" && renderAssignView()}
+          {activeView === "create" && renderCreateView()}
+          {activeView === "all" && renderAllView()}
         </main>
       </div>
     </div>
@@ -1210,10 +1179,6 @@ const styles = {
     display: "grid",
     gridTemplateColumns: "250px minmax(0, 1fr)",
     gap: "20px"
-  },
-  allViewTop: {
-    background: "white",
-    paddingBottom: "12px"
   },
   sidebar: {
     background: "white",
@@ -1454,13 +1419,10 @@ const styles = {
   tableWrapper: {
     overflowX: "auto",
     overflowY: "auto",
-    marginTop: "8px",
+    marginTop: "14px",
     border: "1px solid #e4e7ec",
     borderRadius: "12px",
-    maxHeight: "65vh",
-    position: "relative",
-    background: "white",
-    WebkitOverflowScrolling: "touch"
+    maxHeight: "65vh"
   },
   table: {
     width: "max-content",
@@ -1469,25 +1431,19 @@ const styles = {
     borderSpacing: 0,
     tableLayout: "auto"
   },
-  thead: {
-    position: "sticky",
-    top: 0,
-    zIndex: 40
-  },
   th: {
     textAlign: "center",
-    padding: "12px 8px",
+    padding: "8px 8px",
     borderBottom: "1px solid #e4e7ec",
     fontSize: "12px",
     color: "#667085",
     textTransform: "uppercase",
     letterSpacing: "0.03em",
     whiteSpace: "nowrap",
-    background: "#ffffff",
+    background: "white",
     position: "sticky",
     top: 0,
-    zIndex: 40,
-    boxShadow: "inset 0 -1px 0 #e4e7ec"
+    zIndex: 6
   },
   td: {
     padding: "8px 8px",
@@ -1502,7 +1458,7 @@ const styles = {
     position: "sticky",
     left: 0,
     background: "white",
-    zIndex: 5,
+    zIndex: 7,
     minWidth: "88px",
     maxWidth: "88px",
     boxShadow: "2px 0 4px rgba(0,0,0,0.04)"
@@ -1511,7 +1467,7 @@ const styles = {
     position: "sticky",
     left: "88px",
     background: "white",
-    zIndex: 5,
+    zIndex: 7,
     minWidth: "120px",
     maxWidth: "120px"
   },
@@ -1519,7 +1475,7 @@ const styles = {
     position: "sticky",
     left: "208px",
     background: "white",
-    zIndex: 5,
+    zIndex: 7,
     minWidth: "120px",
     maxWidth: "120px",
     boxShadow: "2px 0 4px rgba(0,0,0,0.04)"
@@ -1528,7 +1484,7 @@ const styles = {
     position: "sticky",
     right: 0,
     background: "white",
-    zIndex: 5,
+    zIndex: 7,
     minWidth: "190px",
     boxShadow: "-2px 0 4px rgba(0,0,0,0.04)"
   },
@@ -1536,57 +1492,9 @@ const styles = {
     position: "sticky",
     right: 0,
     background: "white",
-    zIndex: 5,
+    zIndex: 7,
     minWidth: "120px",
     boxShadow: "-2px 0 4px rgba(0,0,0,0.04)"
-  },
-  thStickyCol1: {
-    position: "sticky",
-    top: 0,
-    left: 0,
-    background: "#ffffff",
-    zIndex: 60,
-    minWidth: "88px",
-    maxWidth: "88px",
-    boxShadow: "2px 0 4px rgba(0,0,0,0.04), inset 0 -1px 0 #e4e7ec"
-  },
-  thStickyCol2: {
-    position: "sticky",
-    top: 0,
-    left: "88px",
-    background: "#ffffff",
-    zIndex: 60,
-    minWidth: "120px",
-    maxWidth: "120px",
-    boxShadow: "inset 0 -1px 0 #e4e7ec"
-  },
-  thStickyCol3: {
-    position: "sticky",
-    top: 0,
-    left: "208px",
-    background: "#ffffff",
-    zIndex: 60,
-    minWidth: "120px",
-    maxWidth: "120px",
-    boxShadow: "2px 0 4px rgba(0,0,0,0.04), inset 0 -1px 0 #e4e7ec"
-  },
-  thStickyRightAction: {
-    position: "sticky",
-    top: 0,
-    right: 0,
-    background: "#ffffff",
-    zIndex: 60,
-    minWidth: "190px",
-    boxShadow: "-2px 0 4px rgba(0,0,0,0.04), inset 0 -1px 0 #e4e7ec"
-  },
-  thStickyRightDelete: {
-    position: "sticky",
-    top: 0,
-    right: 0,
-    background: "#ffffff",
-    zIndex: 60,
-    minWidth: "120px",
-    boxShadow: "-2px 0 4px rgba(0,0,0,0.04), inset 0 -1px 0 #e4e7ec"
   },
   emptyCell: {
     padding: "20px",
