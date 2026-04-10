@@ -1,37 +1,68 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "firebase/auth";
+import { auth } from "../services/firebase";
 import GuichetPage from "./GuichetPage";
 
-const ORGANIZER_PASSWORD = "CityJogging2026";
-
 function ProtectedGuichetPage() {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    localStorage.getItem("guichet-auth") === "true"
-  );
+  const [user, setUser] = useState(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsCheckingAuth(false);
+    });
 
-    if (password === ORGANIZER_PASSWORD) {
-      localStorage.setItem("guichet-auth", "true");
-      setIsAuthenticated(true);
-      setError("");
-    } else {
-      setError("Mot de passe incorrect.");
+    return () => unsubscribe();
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      setEmail("");
+      setPassword("");
+    } catch (err) {
+      setError("Identifiants incorrects.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("guichet-auth");
-    setIsAuthenticated(false);
-    setPassword("");
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      setError("Erreur lors de la déconnexion.");
+    }
   };
 
-  if (isAuthenticated) {
+  if (isCheckingAuth) {
+    return (
+      <div style={styles.page}>
+        <div style={styles.card}>
+          <p style={styles.subtitle}>Vérification de la connexion...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (user) {
     return (
       <div>
         <div style={styles.topBar}>
+          <div style={styles.userInfo}>{user.email}</div>
           <button onClick={handleLogout} style={styles.logoutButton}>
             Déconnexion
           </button>
@@ -45,21 +76,33 @@ function ProtectedGuichetPage() {
     <div style={styles.page}>
       <div style={styles.card}>
         <h1 style={styles.title}>Espace organisateur</h1>
-        <p style={styles.subtitle}>Entrez le mot de passe pour accéder au guichet.</p>
+        <p style={styles.subtitle}>
+          Connectez-vous avec votre compte organisateur.
+        </p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Adresse email"
+            style={styles.input}
+            autoComplete="username"
+          />
+
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Mot de passe"
             style={styles.input}
+            autoComplete="current-password"
           />
 
           {error && <div style={styles.error}>{error}</div>}
 
-          <button type="submit" style={styles.button}>
-            Se connecter
+          <button type="submit" style={styles.button} disabled={isLoading}>
+            {isLoading ? "Connexion..." : "Se connecter"}
           </button>
         </form>
       </div>
@@ -126,7 +169,17 @@ const styles = {
     position: "fixed",
     top: "16px",
     right: "16px",
-    zIndex: 1000
+    zIndex: 1000,
+    display: "flex",
+    alignItems: "center",
+    gap: "10px"
+  },
+  userInfo: {
+    background: "white",
+    padding: "10px 12px",
+    borderRadius: "10px",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+    fontSize: "14px"
   },
   logoutButton: {
     height: "40px",
