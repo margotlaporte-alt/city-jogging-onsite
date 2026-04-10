@@ -62,6 +62,7 @@ function GuichetPage() {
         id: documentSnapshot.id,
         ...documentSnapshot.data()
       }));
+
       setRegistrations(data);
     });
 
@@ -568,33 +569,22 @@ function GuichetPage() {
 
       <div style={styles.tableWrapper}>
         <table style={styles.table}>
-          <thead>
+          <thead style={styles.thead}>
             <tr>
-              <th style={{ ...styles.th, ...styles.stickyCol1, zIndex: 50 }}>
-                Code
-              </th>
-              <th style={{ ...styles.th, ...styles.stickyCol2, zIndex: 50 }}>
-                Nom
-              </th>
-              <th style={{ ...styles.th, ...styles.stickyCol3, zIndex: 50 }}>
-                Prénom
-              </th>
+              <th style={{ ...styles.th, ...styles.thStickyCol1 }}>Code</th>
+              <th style={{ ...styles.th, ...styles.thStickyCol2 }}>Nom</th>
+              <th style={{ ...styles.th, ...styles.thStickyCol3 }}>Prénom</th>
               <th style={styles.th}>Sexe</th>
               <th style={styles.th}>Type</th>
               <th style={styles.th}>Distance</th>
               <th style={styles.th}>Statut</th>
               <th style={styles.th}>Dossard actuel</th>
-              <th
-                style={{
-                  ...styles.th,
-                  ...styles.stickyRightAction,
-                  zIndex: 50
-                }}
-              >
+              <th style={{ ...styles.th, ...styles.thStickyRightAction }}>
                 Action
               </th>
             </tr>
           </thead>
+
           <tbody>
             {filteredAssignableRegistrations.length === 0 ? (
               <tr>
@@ -1006,17 +996,11 @@ function GuichetPage() {
 
       <div style={styles.tableWrapper}>
         <table style={styles.table}>
-          <thead>
+          <thead style={styles.thead}>
             <tr>
-              <th style={{ ...styles.th, ...styles.stickyCol1, zIndex: 50 }}>
-                Code
-              </th>
-              <th style={{ ...styles.th, ...styles.stickyCol2, zIndex: 50 }}>
-                Nom
-              </th>
-              <th style={{ ...styles.th, ...styles.stickyCol3, zIndex: 50 }}>
-                Prénom
-              </th>
+              <th style={{ ...styles.th, ...styles.thStickyCol1 }}>Code</th>
+              <th style={{ ...styles.th, ...styles.thStickyCol2 }}>Nom</th>
+              <th style={{ ...styles.th, ...styles.thStickyCol3 }}>Prénom</th>
               <th style={styles.th}>Email</th>
               <th style={styles.th}>Nationalité</th>
               <th style={styles.th}>Club</th>
@@ -1029,17 +1013,12 @@ function GuichetPage() {
               <th style={styles.th}>Dossard actuel</th>
               <th style={styles.th}>Dossard initial</th>
               <th style={styles.th}>Statut</th>
-              <th
-                style={{
-                  ...styles.th,
-                  ...styles.stickyRightDelete,
-                  zIndex: 50
-                }}
-              >
+              <th style={{ ...styles.th, ...styles.thStickyRightDelete }}>
                 Action
               </th>
             </tr>
           </thead>
+
           <tbody>
             {filteredAllRegistrations.length === 0 ? (
               <tr>
@@ -1459,7 +1438,9 @@ const styles = {
     border: "1px solid #e4e7ec",
     borderRadius: "12px",
     maxHeight: "65vh",
-    position: "relative"
+    position: "relative",
+    background: "white",
+    WebkitOverflowScrolling: "touch"
   },
   table: {
     width: "max-content",
@@ -1468,19 +1449,25 @@ const styles = {
     borderSpacing: 0,
     tableLayout: "auto"
   },
+  thead: {
+    position: "sticky",
+    top: 0,
+    zIndex: 40
+  },
   th: {
     textAlign: "center",
-    padding: "8px 8px",
+    padding: "12px 8px",
     borderBottom: "1px solid #e4e7ec",
     fontSize: "12px",
     color: "#667085",
     textTransform: "uppercase",
     letterSpacing: "0.03em",
     whiteSpace: "nowrap",
-    background: "white",
+    background: "#ffffff",
     position: "sticky",
     top: 0,
-    zIndex: 30
+    zIndex: 40,
+    boxShadow: "inset 0 -1px 0 #e4e7ec"
   },
   td: {
     padding: "8px 8px",
@@ -1495,7 +1482,7 @@ const styles = {
     position: "sticky",
     left: 0,
     background: "white",
-    zIndex: 7,
+    zIndex: 5,
     minWidth: "88px",
     maxWidth: "88px",
     boxShadow: "2px 0 4px rgba(0,0,0,0.04)"
@@ -1504,7 +1491,7 @@ const styles = {
     position: "sticky",
     left: "88px",
     background: "white",
-    zIndex: 7,
+    zIndex: 5,
     minWidth: "120px",
     maxWidth: "120px"
   },
@@ -1512,7 +1499,7 @@ const styles = {
     position: "sticky",
     left: "208px",
     background: "white",
-    zIndex: 7,
+    zIndex: 5,
     minWidth: "120px",
     maxWidth: "120px",
     boxShadow: "2px 0 4px rgba(0,0,0,0.04)"
@@ -1521,7 +1508,7 @@ const styles = {
     position: "sticky",
     right: 0,
     background: "white",
-    zIndex: 7,
+    zIndex: 5,
     minWidth: "190px",
     boxShadow: "-2px 0 4px rgba(0,0,0,0.04)"
   },
@@ -1529,9 +1516,57 @@ const styles = {
     position: "sticky",
     right: 0,
     background: "white",
-    zIndex: 7,
+    zIndex: 5,
     minWidth: "120px",
     boxShadow: "-2px 0 4px rgba(0,0,0,0.04)"
+  },
+  thStickyCol1: {
+    position: "sticky",
+    top: 0,
+    left: 0,
+    background: "#ffffff",
+    zIndex: 60,
+    minWidth: "88px",
+    maxWidth: "88px",
+    boxShadow: "2px 0 4px rgba(0,0,0,0.04), inset 0 -1px 0 #e4e7ec"
+  },
+  thStickyCol2: {
+    position: "sticky",
+    top: 0,
+    left: "88px",
+    background: "#ffffff",
+    zIndex: 60,
+    minWidth: "120px",
+    maxWidth: "120px",
+    boxShadow: "inset 0 -1px 0 #e4e7ec"
+  },
+  thStickyCol3: {
+    position: "sticky",
+    top: 0,
+    left: "208px",
+    background: "#ffffff",
+    zIndex: 60,
+    minWidth: "120px",
+    maxWidth: "120px",
+    boxShadow: "2px 0 4px rgba(0,0,0,0.04), inset 0 -1px 0 #e4e7ec"
+  },
+  thStickyRightAction: {
+    position: "sticky",
+    top: 0,
+    right: 0,
+    background: "#ffffff",
+    zIndex: 60,
+    minWidth: "190px",
+    boxShadow: "-2px 0 4px rgba(0,0,0,0.04), inset 0 -1px 0 #e4e7ec"
+  },
+  thStickyRightDelete: {
+    position: "sticky",
+    top: 0,
+    right: 0,
+    background: "#ffffff",
+    zIndex: 60,
+    minWidth: "120px",
+    boxShadow: "-2px 0 4px rgba(0,0,0,0.04), inset 0 -1px 0 #e4e7ec"
   },
   emptyCell: {
     padding: "20px",
