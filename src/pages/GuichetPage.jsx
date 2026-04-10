@@ -1187,9 +1187,11 @@ function GuichetPage() {
             <div style={styles.feedback}>{feedbackMessage}</div>
           )}
 
-          {activeView === "assign" && renderAssignView()}
-          {activeView === "create" && renderCreateView()}
-          {activeView === "all" && renderAllView()}
+          <div key={activeView}>
+            {activeView === "assign" && renderAssignView()}
+            {activeView === "create" && renderCreateView()}
+            {activeView === "all" && renderAllView()}
+          </div>
         </main>
       </div>
     </div>
@@ -1210,9 +1212,6 @@ const styles = {
     gap: "20px"
   },
   allViewTop: {
-    position: "sticky",
-    top: 0,
-    zIndex: 20,
     background: "white",
     paddingBottom: "12px"
   },
