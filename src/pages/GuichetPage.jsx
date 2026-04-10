@@ -5,13 +5,9 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDocs,
   onSnapshot,
-  orderBy,
-  query,
   runTransaction,
-  updateDoc,
-  where
+  updateDoc
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { nationalityOptions, clubsMain, clubsSecondary } from "../data/options";
@@ -52,66 +48,35 @@ function GuichetPage() {
 
   const [createFormError, setCreateFormError] = useState("");
 
-useEffect(() => {
-  let isMounted = true;
+  useEffect(() => {
+    setIsLoadingRegistrations(true);
 
-  const registrationsQuery = query(
-    collection(db, "onsite_registrations"),
-    where("eventEdition", "==", ACTIVE_EVENT_EDITION),
-    orderBy("registrationCode", "desc")
-  );
+    const unsubscribe = onSnapshot(
+      collection(db, "onsite_registrations"),
+      (snapshot) => {
+        const data = snapshot.docs
+          .map((documentSnapshot) => ({
+            id: documentSnapshot.id,
+            ...documentSnapshot.data()
+          }))
+          .filter((item) => item.eventEdition === ACTIVE_EVENT_EDITION)
+          .sort((a, b) => {
+            const aCode = a.registrationCode || "";
+            const bCode = b.registrationCode || "";
+            return bCode.localeCompare(aCode, undefined, { numeric: true });
+          });
 
-  const loadInitialData = async () => {
-    try {
-      setIsLoadingRegistrations(true);
-
-      const snapshot = await getDocs(registrationsQuery);
-
-      if (!isMounted) return;
-
-      const data = snapshot.docs.map((documentSnapshot) => ({
-        id: documentSnapshot.id,
-        ...documentSnapshot.data()
-      }));
-
-      setRegistrations(data);
-    } catch (error) {
-      console.error("Erreur chargement initial inscriptions :", error);
-    } finally {
-      if (isMounted) {
+        setRegistrations(data);
+        setIsLoadingRegistrations(false);
+      },
+      (error) => {
+        console.error("Erreur chargement inscriptions :", error);
         setIsLoadingRegistrations(false);
       }
-    }
-  };
+    );
 
-  loadInitialData();
-
-  const unsubscribe = onSnapshot(
-    registrationsQuery,
-    (snapshot) => {
-      if (!isMounted) return;
-
-      const data = snapshot.docs.map((documentSnapshot) => ({
-        id: documentSnapshot.id,
-        ...documentSnapshot.data()
-      }));
-
-      setRegistrations(data);
-      setIsLoadingRegistrations(false);
-    },
-    (error) => {
-      console.error("Erreur écoute temps réel inscriptions :", error);
-      if (isMounted) {
-        setIsLoadingRegistrations(false);
-      }
-    }
-  );
-
-  return () => {
-    isMounted = false;
-    unsubscribe();
-  };
-}, []);
+    return () => unsubscribe();
+  }, []);
 
   const calculateAge = (birthDate) => {
     if (!birthDate) return null;
@@ -629,20 +594,20 @@ useEffect(() => {
             </tr>
           </thead>
 
-        <tbody>
-  {isLoadingRegistrations ? (
-    <tr>
-      <td colSpan="9" style={styles.emptyCell}>
-        Chargement des inscrits...
-      </td>
-    </tr>
-  ) : filteredAssignableRegistrations.length === 0 ? (
-    <tr>
-      <td colSpan="9" style={styles.emptyCell}>
-        Aucun inscrit trouvé.
-      </td>
-    </tr>
-  ) : (
+          <tbody>
+            {isLoadingRegistrations ? (
+              <tr>
+                <td colSpan="9" style={styles.emptyCell}>
+                  Chargement des inscrits...
+                </td>
+              </tr>
+            ) : filteredAssignableRegistrations.length === 0 ? (
+              <tr>
+                <td colSpan="9" style={styles.emptyCell}>
+                  Aucun inscrit trouvé.
+                </td>
+              </tr>
+            ) : (
               filteredAssignableRegistrations.map((registration) => {
                 const currentInput = bibInputs[registration.id] || "";
                 const bibConflict = getBibConflict(registration, currentInput);
@@ -1069,20 +1034,20 @@ useEffect(() => {
             </tr>
           </thead>
 
-        <tbody>
-  {isLoadingRegistrations ? (
-    <tr>
-      <td colSpan="16" style={styles.emptyCell}>
-        Chargement des inscrits...
-      </td>
-    </tr>
-  ) : filteredAllRegistrations.length === 0 ? (
-    <tr>
-      <td colSpan="16" style={styles.emptyCell}>
-        Aucun inscrit trouvé.
-      </td>
-    </tr>
-  ) : (
+          <tbody>
+            {isLoadingRegistrations ? (
+              <tr>
+                <td colSpan="16" style={styles.emptyCell}>
+                  Chargement des inscrits...
+                </td>
+              </tr>
+            ) : filteredAllRegistrations.length === 0 ? (
+              <tr>
+                <td colSpan="16" style={styles.emptyCell}>
+                  Aucun inscrit trouvé.
+                </td>
+              </tr>
+            ) : (
               filteredAllRegistrations.map((registration) => (
                 <tr key={registration.id}>
                   <td style={{ ...styles.td, ...styles.stickyCol1 }}>
