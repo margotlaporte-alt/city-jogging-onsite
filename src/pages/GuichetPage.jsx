@@ -918,7 +918,8 @@ function GuichetPage() {
   );
 
   const renderAllView = () => (
-    <>
+  <>
+    <div style={styles.allViewTop}>
       <div style={styles.sectionHeader}>
         <h2 style={styles.sectionTitle}>Tous les inscrits</h2>
         <p style={styles.sectionText}>
@@ -986,105 +987,106 @@ function GuichetPage() {
           <option value="female">Femme</option>
         </select>
       </div>
+    </div>
 
-      <div style={styles.tableWrapper}>
-        <table style={styles.table}>
-          <thead>
+    <div style={styles.tableWrapper}>
+      <table style={styles.table}>
+        <thead>
+          <tr>
+            <th style={{ ...styles.th, ...styles.stickyCol1 }}>Code</th>
+            <th style={{ ...styles.th, ...styles.stickyCol2 }}>Nom</th>
+            <th style={{ ...styles.th, ...styles.stickyCol3 }}>Prénom</th>
+            <th style={styles.th}>Email</th>
+            <th style={styles.th}>Nationalité</th>
+            <th style={styles.th}>Club</th>
+            <th style={styles.th}>Sexe</th>
+            <th style={styles.th}>Naissance</th>
+            <th style={styles.th}>Âge</th>
+            <th style={styles.th}>Resp. légal</th>
+            <th style={styles.th}>Type</th>
+            <th style={styles.th}>Distance</th>
+            <th style={styles.th}>Dossard actuel</th>
+            <th style={styles.th}>Dossard initial</th>
+            <th style={styles.th}>Statut</th>
+            <th style={{ ...styles.th, ...styles.stickyRightDelete }}>
+              Action
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredAllRegistrations.length === 0 ? (
             <tr>
-              <th style={{ ...styles.th, ...styles.stickyCol1 }}>Code</th>
-              <th style={{ ...styles.th, ...styles.stickyCol2 }}>Nom</th>
-              <th style={{ ...styles.th, ...styles.stickyCol3 }}>Prénom</th>
-              <th style={styles.th}>Email</th>
-              <th style={styles.th}>Nationalité</th>
-              <th style={styles.th}>Club</th>
-              <th style={styles.th}>Sexe</th>
-              <th style={styles.th}>Naissance</th>
-              <th style={styles.th}>Âge</th>
-              <th style={styles.th}>Resp. légal</th>
-              <th style={styles.th}>Type</th>
-              <th style={styles.th}>Distance</th>
-              <th style={styles.th}>Dossard actuel</th>
-              <th style={styles.th}>Dossard initial</th>
-              <th style={styles.th}>Statut</th>
-              <th style={{ ...styles.th, ...styles.stickyRightDelete }}>
-                Action
-              </th>
+              <td colSpan="16" style={styles.emptyCell}>
+                Aucun inscrit trouvé.
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {filteredAllRegistrations.length === 0 ? (
-              <tr>
-                <td colSpan="16" style={styles.emptyCell}>
-                  Aucun inscrit trouvé.
+          ) : (
+            filteredAllRegistrations.map((registration) => (
+              <tr key={registration.id}>
+                <td style={{ ...styles.td, ...styles.stickyCol1 }}>
+                  {registration.registrationCode}
+                </td>
+
+                <td style={{ ...styles.td, ...styles.stickyCol2 }}>
+                  <div style={styles.nameCell}>
+                    <span>{registration.lastName}</span>
+                    {renderPreRegistrationBadge(registration)}
+                  </div>
+                </td>
+
+                <td style={{ ...styles.td, ...styles.stickyCol3 }}>
+                  {registration.firstName}
+                </td>
+
+                <td style={styles.td}>{registration.email || "-"}</td>
+                <td style={styles.td}>{registration.nationality || "-"}</td>
+                <td style={styles.td}>{registration.club || "-"}</td>
+
+                <td style={styles.td}>
+                  {registration.sex === "male"
+                    ? "Homme"
+                    : registration.sex === "female"
+                    ? "Femme"
+                    : "-"}
+                </td>
+
+                <td style={styles.td}>{registration.birthDate || "-"}</td>
+                <td style={styles.td}>
+                  {registration.age !== undefined && registration.age !== null
+                    ? registration.age
+                    : "-"}
+                </td>
+                <td style={styles.td}>{registration.legalGuardian || "-"}</td>
+
+                <td style={styles.td}>{getReadableType(registration)}</td>
+                <td style={styles.td}>{registration.distance || "-"}</td>
+                <td style={styles.td}>{registration.bibNumber || "-"}</td>
+                <td style={styles.td}>
+                  {registration.originalBibNumber || "-"}
+                </td>
+                <td style={styles.td}>{getReadableStatus(registration)}</td>
+
+                <td style={{ ...styles.td, ...styles.stickyRightDelete }}>
+                  <button
+                    style={styles.deleteButton}
+                    onClick={() =>
+                      handleDeleteRegistration(
+                        registration.id,
+                        registration.registrationCode
+                      )
+                    }
+                  >
+                    Supprimer
+                  </button>
                 </td>
               </tr>
-            ) : (
-              filteredAllRegistrations.map((registration) => (
-                <tr key={registration.id}>
-                  <td style={{ ...styles.td, ...styles.stickyCol1 }}>
-                    {registration.registrationCode}
-                  </td>
-
-                  <td style={{ ...styles.td, ...styles.stickyCol2 }}>
-                    <div style={styles.nameCell}>
-                      <span>{registration.lastName}</span>
-                      {renderPreRegistrationBadge(registration)}
-                    </div>
-                  </td>
-
-                  <td style={{ ...styles.td, ...styles.stickyCol3 }}>
-                    {registration.firstName}
-                  </td>
-
-                  <td style={styles.td}>{registration.email || "-"}</td>
-                  <td style={styles.td}>{registration.nationality || "-"}</td>
-                  <td style={styles.td}>{registration.club || "-"}</td>
-
-                  <td style={styles.td}>
-                    {registration.sex === "male"
-                      ? "Homme"
-                      : registration.sex === "female"
-                      ? "Femme"
-                      : "-"}
-                  </td>
-
-                  <td style={styles.td}>{registration.birthDate || "-"}</td>
-                  <td style={styles.td}>
-                    {registration.age !== undefined && registration.age !== null
-                      ? registration.age
-                      : "-"}
-                  </td>
-                  <td style={styles.td}>{registration.legalGuardian || "-"}</td>
-
-                  <td style={styles.td}>{getReadableType(registration)}</td>
-                  <td style={styles.td}>{registration.distance || "-"}</td>
-                  <td style={styles.td}>{registration.bibNumber || "-"}</td>
-                  <td style={styles.td}>
-                    {registration.originalBibNumber || "-"}
-                  </td>
-                  <td style={styles.td}>{getReadableStatus(registration)}</td>
-
-                  <td style={{ ...styles.td, ...styles.stickyRightDelete }}>
-                    <button
-                      style={styles.deleteButton}
-                      onClick={() =>
-                        handleDeleteRegistration(
-                          registration.id,
-                          registration.registrationCode
-                        )
-                      }
-                    >
-                      Supprimer
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </>
+);
 
   return (
     <div style={styles.page}>
@@ -1180,6 +1182,13 @@ const styles = {
     gridTemplateColumns: "250px minmax(0, 1fr)",
     gap: "20px"
   },
+  allViewTop: {
+  position: "sticky",
+  top: 0,
+  zIndex: 20,
+  background: "white",
+  paddingBottom: "12px"
+},
   sidebar: {
     background: "white",
     borderRadius: "20px",
@@ -1416,14 +1425,15 @@ const styles = {
     fontWeight: 700,
     fontSize: "13px"
   },
-  tableWrapper: {
-    overflowX: "auto",
-    overflowY: "auto",
-    marginTop: "14px",
-    border: "1px solid #e4e7ec",
-    borderRadius: "12px",
-    maxHeight: "65vh"
-  },
+tableWrapper: {
+  overflowX: "auto",
+  overflowY: "auto",
+  marginTop: "8px",
+  border: "1px solid #e4e7ec",
+  borderRadius: "12px",
+  maxHeight: "65vh",
+  position: "relative"
+},
   table: {
     width: "max-content",
     minWidth: "100%",
