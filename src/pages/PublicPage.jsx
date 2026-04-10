@@ -6,6 +6,8 @@ import { nationalityOptions, clubsMain, clubsSecondary } from "../data/options";
 import cityLogo from "../assets/jpmorgan.png";
 import flaLogo from "../assets/fla.png";
 
+const ACTIVE_EVENT_EDITION = "city-jogging-2025";
+
 function PublicPage() {
   const [lang, setLang] = useState("en");
 
@@ -67,7 +69,8 @@ function PublicPage() {
       distance: "Distance",
       organizerAccess: "Espace organisateur",
       requiredFieldsNote: "* Champs obligatoires",
-      underFiveError: "Les inscriptions sont interdites pour les enfants de moins de 5 ans.",
+      underFiveError:
+        "Les inscriptions sont interdites pour les enfants de moins de 5 ans.",
       kidsAgeError: "Le Kids Jogging est réservé aux enfants de 5 à 14 ans.",
       dataConsent:
         "J’autorise le traitement de mes données dans le cadre de la course.",
@@ -99,8 +102,10 @@ function PublicPage() {
       distance: "Distanz",
       organizerAccess: "Organisatorenbereich",
       requiredFieldsNote: "* Pflichtfelder",
-      underFiveError: "Anmeldungen für Kinder unter 5 Jahren sind nicht erlaubt.",
-      kidsAgeError: "Kids Jogging ist nur für Kinder von 5 bis 14 Jahren verfügbar.",
+      underFiveError:
+        "Anmeldungen für Kinder unter 5 Jahren sind nicht erlaubt.",
+      kidsAgeError:
+        "Kids Jogging ist nur für Kinder von 5 bis 14 Jahren verfügbar.",
       dataConsent:
         "Ich erlaube die Verarbeitung meiner Daten im Rahmen dieses Laufs.",
       futureConsent:
@@ -152,6 +157,8 @@ function PublicPage() {
     const today = new Date();
     const birth = new Date(birthDate);
 
+    if (Number.isNaN(birth.getTime())) return null;
+
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
 
@@ -179,7 +186,7 @@ function PublicPage() {
         club: texts.noClub
       }));
     }
-  }, [lang]);
+  }, [lang, texts.noClub, formData.club]);
 
   useEffect(() => {
     if (formData.participationType === "kids_jogging") {
@@ -207,15 +214,23 @@ function PublicPage() {
     }
 
     setAgeError("");
-  }, [formData.birthDate, formData.participationType, lang]);
+  }, [
+    formData.birthDate,
+    formData.participationType,
+    age,
+    isUnderFive,
+    isKidsJogging,
+    texts.underFiveError,
+    texts.kidsAgeError
+  ]);
 
   const generateCode = async () => {
     const ref = doc(db, "counters", "onsiteRegistrationCounter");
 
     const num = await runTransaction(db, async (transaction) => {
       const counterDoc = await transaction.get(ref);
-      const next = (counterDoc.data().value || 0) + 1;
-      transaction.update(ref, { value: next });
+      const next = (counterDoc.data()?.value || 0) + 1;
+      transaction.set(ref, { value: next }, { merge: true });
       return next;
     });
 
@@ -288,8 +303,14 @@ function PublicPage() {
       futureContactConsent: formData.futureContactConsent,
       bibAssigned: false,
       bibNumber: "",
+      originalBibNumber: "",
       status: "pending",
-      source: "onsite"
+      source: "public-form",
+      eventEdition: ACTIVE_EVENT_EDITION,
+      isPreRegistered: false,
+      bibReassigned: false,
+      bibHistory: [],
+      createdAt: new Date().toISOString()
     });
 
     setCode(newCode);
