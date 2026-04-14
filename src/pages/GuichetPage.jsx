@@ -6,13 +6,22 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
+  query,
   runTransaction,
-  updateDoc
+  updateDoc,
+  where
 } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import { db } from "../services/firebase";
+import { auth } from "../services/firebase";
 import { nationalityOptions, clubsMain, clubsSecondary } from "../data/options";
+import {
+  DEFAULT_APP_CONFIG,
+  loadAppConfig
+} from "../services/appConfig";
+import { isAdminEmail } from "../config/admin";
 
-const ACTIVE_EVENT_EDITION = "city-jogging-2025";
+const ALL_VIEW_PAGE_SIZE = 100;
 
 function GuichetPage() {
   const navigate = useNavigate();
@@ -25,11 +34,16 @@ function GuichetPage() {
   const [textSearchTerm, setTextSearchTerm] = useState("");
   const [bibInputs, setBibInputs] = useState({});
   const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [activeEdition, setActiveEdition] = useState(
+    DEFAULT_APP_CONFIG.onsiteActiveEdition
+  );
+  const [canAccessConfiguration, setCanAccessConfiguration] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [distanceFilter, setDistanceFilter] = useState("all");
   const [sexFilter, setSexFilter] = useState("all");
+  const [allViewPage, setAllViewPage] = useState(1);
 
   const [newForm, setNewForm] = useState({
     lastName: "",
@@ -47,18 +61,52 @@ function GuichetPage() {
     futureContactConsent: false
   });
 
-  const [createFormError, setCreateFormError] = useState("");
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchConfig = async () => {
+      try {
+        const config = await loadAppConfig();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setActiveEdition(config.onsiteActiveEdition);
+      } catch (error) {
+        console.error("Erreur chargement edition guichet :", error);
+      }
+    };
+
+    fetchConfig();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setCanAccessConfiguration(isAdminEmail(currentUser?.email));
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    const registrationsQuery = query(
       collection(db, "onsite_registrations"),
+      where("eventEdition", "==", activeEdition)
+    );
+
+    const unsubscribe = onSnapshot(
+      registrationsQuery,
       (snapshot) => {
         const data = snapshot.docs
           .map((documentSnapshot) => ({
             id: documentSnapshot.id,
             ...documentSnapshot.data()
           }))
-          .filter((item) => item.eventEdition === ACTIVE_EVENT_EDITION)
           .sort((a, b) => {
             const codeA = a.registrationCode || "";
             const codeB = b.registrationCode || "";
@@ -73,7 +121,7 @@ function GuichetPage() {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [activeEdition]);
 
   useEffect(() => {
     if (!tableWrapperRef.current) return;
@@ -152,51 +200,25 @@ function GuichetPage() {
 
   const createAge = calculateAge(newForm.birthDate);
   const createIsMinor = createAge !== null && createAge < 18;
-  const createIsUnderFive = createAge !== null && createAge < 5;
   const createIsKidsJogging = newForm.participationType === "kids_jogging";
-
-  useEffect(() => {
-    if (newForm.participationType === "kids_jogging") {
-      setNewForm((prev) => ({
-        ...prev,
-        distance: "1km"
-      }));
-    } else if (newForm.distance === "1km") {
-      setNewForm((prev) => ({
-        ...prev,
-        distance: "6km"
-      }));
-    }
-  }, [newForm.participationType, newForm.distance]);
-
-  useEffect(() => {
+  const createFormError = (() => {
     if (!newForm.birthDate) {
-      setCreateFormError("");
-      return;
+      return "";
     }
 
-    if (createIsUnderFive) {
-      setCreateFormError(
-        "Les inscriptions sont interdites pour les enfants de moins de 5 ans."
-      );
-      return;
+    if (createAge !== null && createAge < 5) {
+      return "Les inscriptions sont interdites pour les enfants de moins de 5 ans.";
     }
 
-    if (createIsKidsJogging && (createAge < 5 || createAge > 14)) {
-      setCreateFormError(
-        "Le Kids Jogging est réservé aux enfants de 5 à 14 ans."
-      );
-      return;
+    if (
+      newForm.participationType === "kids_jogging" &&
+      (createAge < 5 || createAge > 14)
+    ) {
+      return "Le Kids Jogging est réservé aux enfants de 5 à 14 ans.";
     }
 
-    setCreateFormError("");
-  }, [
-    newForm.birthDate,
-    newForm.participationType,
-    createAge,
-    createIsKidsJogging,
-    createIsUnderFive
-  ]);
+    return "";
+  })();
 
   const generateCode = async () => {
     const ref = doc(db, "counters", "onsiteRegistrationCounter");
@@ -291,11 +313,57 @@ function GuichetPage() {
     sexFilter
   ]);
 
+  const totalAllViewPages = Math.max(
+    1,
+    Math.ceil(filteredAllRegistrations.length / ALL_VIEW_PAGE_SIZE)
+  );
+  const currentAllViewPage = Math.min(allViewPage, totalAllViewPages);
+
+  const paginatedAllRegistrations = useMemo(() => {
+    const start = (currentAllViewPage - 1) * ALL_VIEW_PAGE_SIZE;
+    return filteredAllRegistrations.slice(start, start + ALL_VIEW_PAGE_SIZE);
+  }, [filteredAllRegistrations, currentAllViewPage]);
+
   const handleBibInputChange = (registrationId, value) => {
     setBibInputs((prev) => ({
       ...prev,
       [registrationId]: value
     }));
+  };
+
+  const handleSwitchView = (view) => {
+    setActiveView(view);
+    setAllViewPage(1);
+  };
+
+  const handleCodeSearchChange = (value) => {
+    setCodeSearchTerm(value);
+    setAllViewPage(1);
+  };
+
+  const handleTextSearchChange = (value) => {
+    setTextSearchTerm(value);
+    setAllViewPage(1);
+  };
+
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setAllViewPage(1);
+  };
+
+  const handleTypeFilterChange = (value) => {
+    setTypeFilter(value);
+    setAllViewPage(1);
+  };
+
+  const handleDistanceFilterChange = (value) => {
+    setDistanceFilter(value);
+    setAllViewPage(1);
+  };
+
+  const handleSexFilterChange = (value) => {
+    setSexFilter(value);
+    setAllViewPage(1);
   };
 
   const handleAssignBib = async (registration) => {
@@ -395,7 +463,17 @@ function GuichetPage() {
 
     setNewForm((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value
+      [name]: type === "checkbox" ? checked : value,
+      ...(name === "participationType"
+        ? {
+            distance:
+              value === "kids_jogging"
+                ? "1km"
+                : prev.distance === "1km"
+                  ? "6km"
+                  : prev.distance
+          }
+        : {})
     }));
   };
 
@@ -474,7 +552,7 @@ function GuichetPage() {
         bibAssigned: true,
         status: "collected",
         source: "onsite-organizer",
-        eventEdition: ACTIVE_EVENT_EDITION,
+        eventEdition: activeEdition,
         isPreRegistered: false,
         bibReassigned: false,
         bibHistory: [],
@@ -496,8 +574,6 @@ function GuichetPage() {
         dataConsent: true,
         futureContactConsent: false
       });
-
-      setCreateFormError("");
       setFeedbackMessage(`Inscription créée avec succès. Code : ${newCode}`);
     } catch (error) {
       console.error(error);
@@ -562,7 +638,7 @@ function GuichetPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `city-jogging-${ACTIVE_EVENT_EDITION}.csv`);
+    link.setAttribute("download", `city-jogging-${activeEdition}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -628,7 +704,7 @@ function GuichetPage() {
             type="text"
             placeholder="Code ex. 19 ou CJ-0019"
             value={codeSearchTerm}
-            onChange={(event) => setCodeSearchTerm(event.target.value)}
+            onChange={(event) => handleCodeSearchChange(event.target.value)}
             style={styles.searchBar}
           />
           {codeSearchTerm.trim() && (
@@ -643,7 +719,7 @@ function GuichetPage() {
             type="text"
             placeholder="Recherche texte : nom, prénom ou dossard"
             value={textSearchTerm}
-            onChange={(event) => setTextSearchTerm(event.target.value)}
+            onChange={(event) => handleTextSearchChange(event.target.value)}
             style={styles.searchBar}
           />
         </div>
@@ -1025,7 +1101,7 @@ function GuichetPage() {
             type="text"
             placeholder="Code ex. 19 ou CJ-0019"
             value={codeSearchTerm}
-            onChange={(event) => setCodeSearchTerm(event.target.value)}
+            onChange={(event) => handleCodeSearchChange(event.target.value)}
             style={styles.searchBar}
           />
           {codeSearchTerm.trim() && (
@@ -1045,7 +1121,7 @@ function GuichetPage() {
           type="text"
           placeholder="Recherche texte : nom, prénom ou dossard"
           value={textSearchTerm}
-          onChange={(event) => setTextSearchTerm(event.target.value)}
+          onChange={(event) => handleTextSearchChange(event.target.value)}
           style={styles.searchBar}
         />
       </div>
@@ -1053,7 +1129,7 @@ function GuichetPage() {
       <div style={styles.filtersRow}>
         <select
           value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
+          onChange={(event) => handleStatusFilterChange(event.target.value)}
           style={styles.compactInput}
         >
           <option value="all">Tous les statuts</option>
@@ -1065,7 +1141,7 @@ function GuichetPage() {
 
         <select
           value={typeFilter}
-          onChange={(event) => setTypeFilter(event.target.value)}
+          onChange={(event) => handleTypeFilterChange(event.target.value)}
           style={styles.compactInput}
         >
           <option value="all">Tous les types</option>
@@ -1076,7 +1152,7 @@ function GuichetPage() {
 
         <select
           value={distanceFilter}
-          onChange={(event) => setDistanceFilter(event.target.value)}
+          onChange={(event) => handleDistanceFilterChange(event.target.value)}
           style={styles.compactInput}
         >
           <option value="all">Toutes les distances</option>
@@ -1087,13 +1163,18 @@ function GuichetPage() {
 
         <select
           value={sexFilter}
-          onChange={(event) => setSexFilter(event.target.value)}
+          onChange={(event) => handleSexFilterChange(event.target.value)}
           style={styles.compactInput}
         >
           <option value="all">Tous les sexes</option>
           <option value="male">Homme</option>
           <option value="female">Femme</option>
         </select>
+      </div>
+
+      <div style={styles.counterBox}>
+        {filteredAllRegistrations.length} inscrit(s) trouve(s) - page{" "}
+        {currentAllViewPage} / {totalAllViewPages}
       </div>
 
       <div ref={tableWrapperRef} style={styles.tableWrapper}>
@@ -1128,7 +1209,7 @@ function GuichetPage() {
                 </td>
               </tr>
             ) : (
-              filteredAllRegistrations.map((registration) => (
+              paginatedAllRegistrations.map((registration) => (
                 <tr key={registration.id}>
                   <td style={{ ...styles.td, ...styles.stickyCol1 }}>
                     {registration.registrationCode}
@@ -1192,6 +1273,49 @@ function GuichetPage() {
           </tbody>
         </table>
       </div>
+
+      {filteredAllRegistrations.length > ALL_VIEW_PAGE_SIZE && (
+        <div style={styles.paginationRow}>
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(currentAllViewPage === 1 ? styles.disabledButton : {})
+            }}
+            disabled={currentAllViewPage === 1}
+            onClick={() => setAllViewPage((prev) => Math.max(1, prev - 1))}
+          >
+            Page précédente
+          </button>
+
+          <div style={styles.paginationInfo}>
+            Affichage de{" "}
+            {(currentAllViewPage - 1) * ALL_VIEW_PAGE_SIZE + 1}
+            {" - "}
+            {Math.min(
+              currentAllViewPage * ALL_VIEW_PAGE_SIZE,
+              filteredAllRegistrations.length
+            )}{" "}
+            sur {filteredAllRegistrations.length}
+          </div>
+
+          <button
+            type="button"
+            style={{
+              ...styles.paginationButton,
+              ...(currentAllViewPage === totalAllViewPages
+                ? styles.disabledButton
+                : {})
+            }}
+            disabled={currentAllViewPage === totalAllViewPages}
+            onClick={() =>
+              setAllViewPage((prev) => Math.min(totalAllViewPages, prev + 1))
+            }
+          >
+            Page suivante
+          </button>
+        </div>
+      )}
     </>
   );
 
@@ -1205,7 +1329,7 @@ function GuichetPage() {
               Gestion des inscriptions et dossards
             </p>
             <p style={styles.sidebarEdition}>
-              Édition active : {ACTIVE_EVENT_EDITION}
+              Édition active : {activeEdition}
             </p>
           </div>
 
@@ -1215,7 +1339,7 @@ function GuichetPage() {
                 ...styles.menuButton,
                 ...(activeView === "assign" ? styles.menuButtonActive : {})
               }}
-              onClick={() => setActiveView("assign")}
+              onClick={() => handleSwitchView("assign")}
             >
               Recherche / dossards
             </button>
@@ -1225,7 +1349,7 @@ function GuichetPage() {
                 ...styles.menuButton,
                 ...(activeView === "create" ? styles.menuButtonActive : {})
               }}
-              onClick={() => setActiveView("create")}
+              onClick={() => handleSwitchView("create")}
             >
               Inscription + dossard
             </button>
@@ -1235,17 +1359,19 @@ function GuichetPage() {
                 ...styles.menuButton,
                 ...(activeView === "all" ? styles.menuButtonActive : {})
               }}
-              onClick={() => setActiveView("all")}
+              onClick={() => handleSwitchView("all")}
             >
               Tous les inscrits
             </button>
 
-            <button
-              style={styles.menuButton}
-              onClick={() => navigate("/import-preinscrits")}
-            >
-              Import pré-inscrits
-            </button>
+            {canAccessConfiguration && (
+              <button
+                style={styles.menuButton}
+                onClick={() => navigate("/configuration")}
+              >
+                Configuration
+              </button>
+            )}
 
             <button
               style={styles.menuButton}
@@ -1544,6 +1670,30 @@ const styles = {
     color: "#4338ca",
     fontWeight: 700,
     fontSize: "13px"
+  },
+  paginationRow: {
+    marginTop: "14px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    flexWrap: "wrap"
+  },
+  paginationButton: {
+    height: "40px",
+    border: "none",
+    borderRadius: "10px",
+    background: "#111827",
+    color: "white",
+    fontWeight: 700,
+    padding: "0 14px",
+    cursor: "pointer",
+    fontSize: "13px"
+  },
+  paginationInfo: {
+    color: "#667085",
+    fontSize: "13px",
+    fontWeight: 600
   },
   tableWrapper: {
     overflowX: "auto",

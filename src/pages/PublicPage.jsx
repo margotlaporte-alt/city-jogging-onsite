@@ -8,10 +8,19 @@ import {
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { nationalityOptions, clubsMain, clubsSecondary } from "../data/options";
+import {
+  DEFAULT_APP_CONFIG,
+  getEditionYear,
+  loadAppConfig
+} from "../services/appConfig";
 import cityLogo from "../assets/jpmorgan.png";
 import flaLogo from "../assets/fla.png";
 
-const ACTIVE_EVENT_EDITION = "city-jogging-2025";
+const NO_CLUB_VALUES = [
+  "No club provided",
+  "Aucun club renseigné",
+  "Kein Verein angegeben"
+];
 
 function PublicPage() {
   const [lang, setLang] = useState("en");
@@ -20,10 +29,14 @@ function PublicPage() {
   const [submitInfo, setSubmitInfo] = useState("");
   const [submittedCodes, setSubmittedCodes] = useState([]);
   const [expandedItems, setExpandedItems] = useState({});
+  const [activeEdition, setActiveEdition] = useState(
+    DEFAULT_APP_CONFIG.onsiteActiveEdition
+  );
+  const editionYear = getEditionYear(activeEdition);
 
   const t = {
     en: {
-      title: "J.P. Morgan City Jogging 2026",
+      title: `J.P. Morgan City Jogging ${editionYear}`,
       subtitle: "On-site registration",
       submitAll: "Confirm all registrations",
       submitting: "Registration in progress...",
@@ -76,7 +89,7 @@ function PublicPage() {
       no: "No"
     },
     fr: {
-      title: "J.P. Morgan City Jogging 2026",
+      title: `J.P. Morgan City Jogging ${editionYear}`,
       subtitle: "Inscription sur place",
       submitAll: "Valider toutes les inscriptions",
       submitting: "Inscription en cours...",
@@ -130,7 +143,7 @@ function PublicPage() {
       no: "Non"
     },
     de: {
-      title: "J.P. Morgan City Jogging 2026",
+      title: `J.P. Morgan City Jogging ${editionYear}`,
       subtitle: "Anmeldung vor Ort",
       submitAll: "Alle Anmeldungen bestätigen",
       submitting: "Anmeldung läuft...",
@@ -245,9 +258,7 @@ function PublicPage() {
   };
 
   useEffect(() => {
-    const noClubValues = [t.en.noClub, t.fr.noClub, t.de.noClub];
-
-    if (noClubValues.includes(formData.club)) {
+    if (NO_CLUB_VALUES.includes(formData.club)) {
       setFormData((prev) => ({
         ...prev,
         club: texts.noClub
@@ -256,7 +267,7 @@ function PublicPage() {
 
     setPendingRegistrations((prev) =>
       prev.map((registration) => {
-        if (noClubValues.includes(registration.club)) {
+        if (NO_CLUB_VALUES.includes(registration.club)) {
           return {
             ...registration,
             club: texts.noClub
@@ -289,6 +300,30 @@ function PublicPage() {
       return prev;
     });
   }, [formData.participationType]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchConfig = async () => {
+      try {
+        const config = await loadAppConfig();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setActiveEdition(config.onsiteActiveEdition);
+      } catch (error) {
+        console.error("Erreur chargement edition publique :", error);
+      }
+    };
+
+    fetchConfig();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const getAgeError = (data) => {
     const age = calculateAge(data.birthDate);
@@ -566,7 +601,7 @@ function PublicPage() {
           originalBibNumber: "",
           status: "pending",
           source: "public-form",
-          eventEdition: ACTIVE_EVENT_EDITION,
+          eventEdition: activeEdition,
           isPreRegistered: false,
           bibReassigned: false,
           bibHistory: [],

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged
 } from "firebase/auth";
 import { auth } from "../services/firebase";
+import { isAdminEmail } from "../config/admin";
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children, requireAdmin = false }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState(null);
@@ -96,6 +98,28 @@ function ProtectedRoute({ children }) {
     );
   }
 
+  if (requireAdmin && !isAdminEmail(user.email)) {
+    return (
+      <div style={styles.page}>
+        <div style={styles.card}>
+          <h1 style={styles.title}>Accès administrateur requis</h1>
+          <p style={styles.subtitle}>
+            Cette page est réservée aux comptes administrateurs configurés dans
+            l’application.
+          </p>
+          <div style={styles.actions}>
+            <Link to="/guichet" style={styles.secondaryButton}>
+              Revenir au guichet
+            </Link>
+            <button onClick={handleLogout} style={styles.button}>
+              Se déconnecter
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div style={styles.topBar}>
@@ -156,6 +180,20 @@ const styles = {
     fontWeight: 700,
     cursor: "pointer"
   },
+  secondaryButton: {
+    height: "46px",
+    border: "1px solid #d0d5dd",
+    borderRadius: "10px",
+    background: "white",
+    color: "#111827",
+    fontWeight: 700,
+    cursor: "pointer",
+    textDecoration: "none",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "0 14px"
+  },
   error: {
     color: "#b91c1c",
     background: "#fef2f2",
@@ -188,6 +226,10 @@ const styles = {
     background: "#111827",
     color: "white",
     cursor: "pointer"
+  },
+  actions: {
+    display: "grid",
+    gap: "12px"
   }
 };
 

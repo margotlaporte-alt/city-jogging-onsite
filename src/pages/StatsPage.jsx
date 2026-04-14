@@ -3,6 +3,11 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { Link } from "react-router-dom";
 import { db } from "../services/firebase";
 import {
+  DEFAULT_APP_CONFIG,
+  getEditionYear,
+  loadAppConfig
+} from "../services/appConfig";
+import {
   PieChart,
   Pie,
   Cell,
@@ -18,21 +23,51 @@ import {
 
 function StatsPage() {
   const [registrations, setRegistrations] = useState([]);
+  const [activeEdition, setActiveEdition] = useState(
+    DEFAULT_APP_CONFIG.onsiteActiveEdition
+  );
+  const editionYear = getEditionYear(activeEdition);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchConfig = async () => {
+      try {
+        const config = await loadAppConfig();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setActiveEdition(config.onsiteActiveEdition);
+      } catch (error) {
+        console.error("Erreur chargement edition stats :", error);
+      }
+    };
+
+    fetchConfig();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(db, "onsite_registrations"),
       (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        const data = snapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+          .filter((registration) => registration.eventEdition === activeEdition);
         setRegistrations(data);
       }
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [activeEdition]);
 
   const stats = useMemo(() => {
     const total = registrations.length;
@@ -88,7 +123,9 @@ function StatsPage() {
       <div style={styles.topBar}>
         <div>
           <h1 style={styles.title}>Statistiques</h1>
-          <p style={styles.subtitle}>Vue en direct des inscriptions City Jogging</p>
+          <p style={styles.subtitle}>
+            Vue en direct des inscriptions City Jogging {editionYear}
+          </p>
         </div>
 
         <Link to="/guichet" style={styles.backLink}>

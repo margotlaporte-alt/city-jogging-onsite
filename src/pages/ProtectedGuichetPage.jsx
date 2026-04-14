@@ -33,7 +33,7 @@ function ProtectedGuichetPage() {
       await signInWithEmailAndPassword(auth, email, password);
       setEmail("");
       setPassword("");
-    } catch (err) {
+    } catch {
       setError("Identifiants incorrects.");
     } finally {
       setIsLoading(false);
@@ -43,7 +43,7 @@ function ProtectedGuichetPage() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-    } catch (err) {
+    } catch {
       setError("Erreur lors de la déconnexion.");
     }
   };
