@@ -4,14 +4,14 @@ import ProtectedRoute from "./pages/ProtectedRoute";
 import GuichetPage from "./pages/GuichetPage";
 import ImportPreRegistrationsPage from "./pages/ImportPreRegistrationsPage";
 import StatsPage from "./pages/StatsPage";
-import PublicPage from "./pages/PublicPage";
+import PublicRegistrationPage from "./pages/PublicRegistrationPage";
 
 function App() {
   return (
     <BrowserRouter>
       <ErrorBoundary>
         <Routes>
-          <Route path="/" element={<PublicPage />} />
+          <Route path="/" element={<PublicRegistrationPage />} />
 
           <Route
             path="/guichet"

@@ -93,6 +93,12 @@ function ProtectedRoute({ children, requireAdmin = false }) {
               {isLoading ? "Connexion..." : "Se connecter"}
             </button>
           </form>
+
+          <div style={styles.actions}>
+            <Link to="/" style={styles.secondaryButton}>
+              Retour à la page publique du guichet
+            </Link>
+          </div>
         </div>
       </div>
     );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Link, Outlet } from "react-router-dom";
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -92,6 +92,12 @@ function ProtectedGuichetPage() {
               {isLoading ? "Connexion..." : "Se connecter"}
             </button>
           </form>
+
+          <div style={styles.actions}>
+            <Link to="/" style={styles.secondaryButton}>
+              Retour à la page publique du guichet
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -158,6 +164,20 @@ const styles = {
     fontWeight: 700,
     cursor: "pointer"
   },
+  secondaryButton: {
+    height: "46px",
+    border: "1px solid #d0d5dd",
+    borderRadius: "10px",
+    background: "white",
+    color: "#111827",
+    fontWeight: 700,
+    cursor: "pointer",
+    textDecoration: "none",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "0 14px"
+  },
   error: {
     color: "#b91c1c",
     background: "#fef2f2",
@@ -165,6 +185,11 @@ const styles = {
     borderRadius: "10px",
     padding: "10px 12px",
     fontSize: "14px"
+  },
+  actions: {
+    display: "grid",
+    gap: "12px",
+    marginTop: "14px"
   },
   topBar: {
     position: "fixed",

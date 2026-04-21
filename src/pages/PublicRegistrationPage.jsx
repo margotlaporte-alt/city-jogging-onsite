@@ -38,7 +38,7 @@ function PublicPage() {
     en: {
       title: `J.P. Morgan City Jogging ${editionYear}`,
       subtitle: "On-site registration",
-      submitAll: "Confirm all registrations",
+      submitAll: "Confirm registration",
       submitting: "Registration in progress...",
       another: "Register more participants",
       success: "Registrations confirmed",
@@ -69,7 +69,8 @@ function PublicPage() {
         "I authorize the processing of my personal data for the purpose of this race.",
       futureConsent:
         "I authorize the FLA to contact me again for future editions of the J.P. Morgan City Jogging.",
-      addParticipant: "Add this participant",
+      confirmRegistration: "Confirm registration",
+      addParticipant: "Add a second participant",
       participantList: "Participants added",
       currentFormTitle: "New participant",
       edit: "Open",
@@ -91,7 +92,7 @@ function PublicPage() {
     fr: {
       title: `J.P. Morgan City Jogging ${editionYear}`,
       subtitle: "Inscription sur place",
-      submitAll: "Valider toutes les inscriptions",
+      submitAll: "Confirmer l'inscription",
       submitting: "Inscription en cours...",
       another: "Faire d’autres inscriptions",
       success: "Inscriptions confirmées",
@@ -123,7 +124,8 @@ function PublicPage() {
         "J’autorise le traitement de mes données dans le cadre de la course.",
       futureConsent:
         "J’autorise la FLA à me recontacter pour les éditions futures du J.P. Morgan City Jogging.",
-      addParticipant: "Ajouter cette personne",
+      confirmRegistration: "Confirmer l'inscription",
+      addParticipant: "Ajouter un deuxième participant",
       participantList: "Participants ajoutés",
       currentFormTitle: "Nouvelle inscription",
       edit: "Ouvrir",
@@ -145,7 +147,7 @@ function PublicPage() {
     de: {
       title: `J.P. Morgan City Jogging ${editionYear}`,
       subtitle: "Anmeldung vor Ort",
-      submitAll: "Alle Anmeldungen bestätigen",
+      submitAll: "Anmeldung bestätigen",
       submitting: "Anmeldung läuft...",
       another: "Weitere Teilnehmer anmelden",
       success: "Anmeldungen bestätigt",
@@ -178,7 +180,8 @@ function PublicPage() {
         "Ich erlaube die Verarbeitung meiner Daten im Rahmen dieses Laufs.",
       futureConsent:
         "Ich erlaube der FLA, mich für zukünftige Ausgaben des J.P. Morgan City Jogging erneut zu kontaktieren.",
-      addParticipant: "Diesen Teilnehmer hinzufügen",
+      confirmRegistration: "Anmeldung bestätigen",
+      addParticipant: "Zweiten Teilnehmer hinzufügen",
       participantList: "Hinzugefügte Teilnehmer",
       currentFormTitle: "Neue Anmeldung",
       edit: "Öffnen",
@@ -362,6 +365,18 @@ function PublicPage() {
     );
   };
 
+  const isRegistrationEmpty = (data) =>
+    data.lastName.trim() === "" &&
+    data.firstName.trim() === "" &&
+    data.email.trim() === "" &&
+    data.nationality.trim() === "" &&
+    (data.club.trim() === "" || NO_CLUB_VALUES.includes(data.club)) &&
+    data.sex.trim() === "" &&
+    data.birthDate.trim() === "" &&
+    data.legalGuardian.trim() === "" &&
+    data.dataConsent === false &&
+    data.futureContactConsent === false;
+
   const normalizeRegistration = (data) => {
     const age = calculateAge(data.birthDate);
     const isMinor = age !== null && age < 18;
@@ -520,37 +535,8 @@ function PublicPage() {
     setFormData(initialForm);
   };
 
-  const toggleExpanded = (tempId) => {
-    setExpandedItems((prev) => ({
-      ...prev,
-      [tempId]: !prev[tempId]
-    }));
-  };
-
-  const handleRemoveParticipant = (tempId) => {
-    setPendingRegistrations((prev) =>
-      prev.filter((registration) => registration.tempId !== tempId)
-    );
-
-    setExpandedItems((prev) => {
-      const next = { ...prev };
-      delete next[tempId];
-      return next;
-    });
-  };
-
-  const handleSubmitAll = async (event) => {
-    event.preventDefault();
-
-    setSubmitError("");
-    setSubmitInfo("");
-
-    if (pendingRegistrations.length === 0) {
-      setSubmitError(texts.batchEmpty);
-      return;
-    }
-
-    const hasInvalidPending = pendingRegistrations.some(
+  const submitRegistrations = async (registrations) => {
+    const hasInvalidPending = registrations.some(
       (registration) => !isRegistrationValid(registration)
     );
 
@@ -563,10 +549,10 @@ function PublicPage() {
     setSubmitInfo(texts.savingAll);
 
     try {
-      const codes = await reserveCodes(pendingRegistrations.length);
+      const codes = await reserveCodes(registrations.length);
       const batch = writeBatch(db);
 
-      pendingRegistrations.forEach((registration, index) => {
+      registrations.forEach((registration, index) => {
         const docRef = doc(collection(db, "onsite_registrations"));
         const calculatedAge = calculateAge(registration.birthDate);
 
@@ -612,7 +598,7 @@ function PublicPage() {
       await batch.commit();
 
       setSubmittedCodes(
-        pendingRegistrations.map((registration, index) => ({
+        registrations.map((registration, index) => ({
           fullName: `${registration.lastName} ${registration.firstName}`,
           code: codes[index]
         }))
@@ -621,7 +607,7 @@ function PublicPage() {
       setPendingRegistrations([]);
       setExpandedItems({});
       setFormData(initialForm);
-      setSubmitInfo(`${pendingRegistrations.length} ${texts.savedCount}`);
+      setSubmitInfo(`${registrations.length} ${texts.savedCount}`);
     } catch (error) {
       console.error(error);
       setSubmitError(
@@ -633,6 +619,75 @@ function PublicPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleConfirmRegistration = async () => {
+    setSubmitError("");
+    setSubmitInfo("");
+
+    const registrationsToSubmit = [...pendingRegistrations];
+    const hasCurrentRegistration = !isRegistrationEmpty(formData);
+
+    if (hasCurrentRegistration) {
+      if (!isRegistrationValid(formData)) {
+        setSubmitError(texts.formInvalid);
+        return;
+      }
+
+      registrationsToSubmit.push(normalizeRegistration(formData));
+    }
+
+    if (registrationsToSubmit.length === 0) {
+      setSubmitError(texts.formInvalid);
+      return;
+    }
+
+    await submitRegistrations(registrationsToSubmit);
+  };
+
+  const toggleExpanded = (tempId) => {
+    setExpandedItems((prev) => ({
+      ...prev,
+      [tempId]: !prev[tempId]
+    }));
+  };
+
+  const handleRemoveParticipant = (tempId) => {
+    setPendingRegistrations((prev) =>
+      prev.filter((registration) => registration.tempId !== tempId)
+    );
+
+    setExpandedItems((prev) => {
+      const next = { ...prev };
+      delete next[tempId];
+      return next;
+    });
+  };
+
+  const handleSubmitAll = async (event) => {
+    event.preventDefault();
+
+    setSubmitError("");
+    setSubmitInfo("");
+
+    const registrationsToSubmit = [...pendingRegistrations];
+    const hasCurrentRegistration = !isRegistrationEmpty(formData);
+
+    if (hasCurrentRegistration) {
+      if (!isRegistrationValid(formData)) {
+        setSubmitError(texts.formInvalid);
+        return;
+      }
+
+      registrationsToSubmit.push(normalizeRegistration(formData));
+    }
+
+    if (registrationsToSubmit.length === 0) {
+      setSubmitError(texts.batchEmpty);
+      return;
+    }
+
+    await submitRegistrations(registrationsToSubmit);
   };
 
   const resetAll = () => {
@@ -994,30 +1049,38 @@ function PublicPage() {
 
             <div style={styles.requiredNote}>{texts.requiredFieldsNote}</div>
 
-            <button
-              type="button"
-              onClick={handleAddParticipant}
-              style={styles.secondaryButton}
-            >
-              {texts.addParticipant}
-            </button>
+            <div style={styles.actionRow}>
+              <button
+                type="button"
+                onClick={handleConfirmRegistration}
+                disabled={isSubmitting}
+                style={{
+                  ...styles.button,
+                  flex: 1,
+                  ...(isSubmitting ? styles.buttonDisabled : {})
+                }}
+              >
+                {isSubmitting ? texts.submitting : texts.confirmRegistration}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAddParticipant}
+                disabled={isSubmitting}
+                style={{
+                  ...styles.secondaryButton,
+                  flex: 1,
+                  ...(isSubmitting ? styles.buttonDisabled : {})
+                }}
+              >
+                {texts.addParticipant}
+              </button>
+            </div>
           </div>
 
           {submitInfo && <div style={styles.infoBox}>{submitInfo}</div>}
           {submitError && <div style={styles.errorBox}>{submitError}</div>}
 
-          <button
-            type="submit"
-            disabled={pendingRegistrations.length === 0 || isSubmitting}
-            style={{
-              ...styles.button,
-              ...(pendingRegistrations.length === 0 || isSubmitting
-                ? styles.buttonDisabled
-                : {})
-            }}
-          >
-            {isSubmitting ? texts.submitting : texts.submitAll}
-          </button>
         </form>
 
         <div style={styles.bottomLinkWrapper}>
@@ -1095,6 +1158,11 @@ const styles = {
   form: {
     display: "grid",
     gap: "14px"
+  },
+  actionRow: {
+    display: "flex",
+    gap: "12px",
+    flexWrap: "wrap"
   },
   formSection: {
     display: "grid",
