@@ -3,12 +3,12 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDVhVv7tkuSl-OEiKeI9ij539wCTX8bKhQ",
-  authDomain: "city-jogging.firebaseapp.com",
-  projectId: "city-jogging",
-  storageBucket: "city-jogging.firebasestorage.app",
-  messagingSenderId: "646817047471",
-  appId: "1:646817047471:web:44755f424724ad4e2a855a"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
