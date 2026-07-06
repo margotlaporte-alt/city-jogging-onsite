@@ -73,6 +73,16 @@ function StatsPage() {
     const total = registrations.length;
     const men = registrations.filter((r) => r.sex === "male").length;
     const women = registrations.filter((r) => r.sex === "female").length;
+    const onsiteDayRegistrations = registrations.filter(
+      (r) => r.source === "public-form" || r.source === "onsite-organizer"
+    );
+    const onsiteDayTotal = onsiteDayRegistrations.length;
+    const publicOnsiteTotal = onsiteDayRegistrations.filter(
+      (r) => r.source === "public-form"
+    ).length;
+    const organizerOnsiteTotal = onsiteDayRegistrations.filter(
+      (r) => r.source === "onsite-organizer"
+    ).length;
 
     const run = registrations.filter((r) => r.participationType === "run").length;
     const walk = registrations.filter((r) => r.participationType === "nordic_walk").length;
@@ -96,6 +106,9 @@ function StatsPage() {
       total,
       men,
       women,
+      onsiteDayTotal,
+      publicOnsiteTotal,
+      organizerOnsiteTotal,
       run,
       walk,
       kids,
@@ -135,6 +148,18 @@ function StatsPage() {
 
       <div style={styles.kpiGrid}>
         <StatCard title="Total inscrits" value={stats.total} />
+        <StatCard
+          title="Inscrits sur place"
+          value={stats.onsiteDayTotal}
+        />
+        <StatCard
+          title="Via LeGuichet public"
+          value={stats.publicOnsiteTotal}
+        />
+        <StatCard
+          title="Saisie manuelle organisateur"
+          value={stats.organizerOnsiteTotal}
+        />
         <StatCard title="Hommes" value={stats.men} />
         <StatCard title="Femmes" value={stats.women} />
         <StatCard title="Course" value={stats.run} />
