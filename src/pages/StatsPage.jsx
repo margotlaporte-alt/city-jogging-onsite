@@ -82,15 +82,46 @@ function StatsPage() {
     });
   }, [allRegistrations, config.importTargetEdition, config.onsiteActiveEdition]);
 
+  const editionCounts = useMemo(() => {
+    const counts = new Map();
+
+    allRegistrations.forEach((registration) => {
+      const edition = String(registration.eventEdition || "").trim();
+
+      if (!edition) {
+        return;
+      }
+
+      counts.set(edition, (counts.get(edition) || 0) + 1);
+    });
+
+    return counts;
+  }, [allRegistrations]);
+
+  const duplicateYears = useMemo(() => {
+    const counts = new Map();
+
+    availableEditions.forEach((edition) => {
+      const year = getEditionYear(edition);
+      counts.set(year, (counts.get(year) || 0) + 1);
+    });
+
+    return counts;
+  }, [availableEditions]);
+
   useEffect(() => {
     if (availableEditions.length === 0) {
       return;
     }
 
+    const preferredEdition = availableEditions.includes(config.onsiteActiveEdition)
+      ? config.onsiteActiveEdition
+      : availableEditions[0];
+
     if (!selectedEdition || !availableEditions.includes(selectedEdition)) {
-      setSelectedEdition(availableEditions[0]);
+      setSelectedEdition(preferredEdition);
     }
-  }, [availableEditions, selectedEdition]);
+  }, [availableEditions, config.onsiteActiveEdition, selectedEdition]);
 
   const registrations = useMemo(() => {
     return allRegistrations.filter(
@@ -164,6 +195,18 @@ function StatsPage() {
 
   const COLORS = ["#4f46e5", "#22c55e", "#f59e0b", "#ef4444"];
 
+  const formatEditionOptionLabel = (edition) => {
+    const year = getEditionYear(edition);
+    const count = editionCounts.get(edition) || 0;
+    const hasDuplicateYear = (duplicateYears.get(year) || 0) > 1;
+
+    if (hasDuplicateYear) {
+      return `City Jogging ${year} - ${edition} (${count} inscrits)`;
+    }
+
+    return `City Jogging ${year} (${count} inscrits)`;
+  };
+
   return (
     <div style={styles.page}>
       <div style={styles.topBar}>
@@ -184,7 +227,7 @@ function StatsPage() {
             >
               {availableEditions.map((edition) => (
                 <option key={edition} value={edition}>
-                  City Jogging {getEditionYear(edition)}
+                  {formatEditionOptionLabel(edition)}
                 </option>
               ))}
             </select>
