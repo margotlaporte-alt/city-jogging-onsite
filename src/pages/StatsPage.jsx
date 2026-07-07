@@ -24,7 +24,7 @@ import {
 function StatsPage() {
   const [allRegistrations, setAllRegistrations] = useState([]);
   const [config, setConfig] = useState(DEFAULT_APP_CONFIG);
-  const [selectedEdition, setSelectedEdition] = useState("");
+  const [selectedEditionYear, setSelectedEditionYear] = useState("");
 
   useEffect(() => {
     const unsubscribe = subscribeToAppConfig(
@@ -57,81 +57,65 @@ function StatsPage() {
     return () => unsubscribe();
   }, []);
 
-  const availableEditions = useMemo(() => {
-    const uniqueEditions = new Set(
+  const availableEditionYears = useMemo(() => {
+    const uniqueYears = new Set(
       allRegistrations
-        .map((registration) => String(registration.eventEdition || "").trim())
+        .map((registration) => getEditionYear(registration.eventEdition))
         .filter(Boolean)
     );
 
-    uniqueEditions.add(config.onsiteActiveEdition);
-    uniqueEditions.add(config.importTargetEdition);
+    uniqueYears.add(getEditionYear(config.onsiteActiveEdition));
+    uniqueYears.add(getEditionYear(config.importTargetEdition));
 
-    return Array.from(uniqueEditions).sort((leftEdition, rightEdition) => {
-      const leftYear = Number(getEditionYear(leftEdition)) || 0;
-      const rightYear = Number(getEditionYear(rightEdition)) || 0;
-
-      if (leftYear !== rightYear) {
-        return rightYear - leftYear;
-      }
-
-      return rightEdition.localeCompare(leftEdition, undefined, {
-        numeric: true,
-        sensitivity: "base"
-      });
-    });
+    return Array.from(uniqueYears).sort(
+      (leftYear, rightYear) => (Number(rightYear) || 0) - (Number(leftYear) || 0)
+    );
   }, [allRegistrations, config.importTargetEdition, config.onsiteActiveEdition]);
 
-  const editionCounts = useMemo(() => {
+  const editionYearCounts = useMemo(() => {
     const counts = new Map();
 
     allRegistrations.forEach((registration) => {
-      const edition = String(registration.eventEdition || "").trim();
+      const editionYear = getEditionYear(registration.eventEdition);
 
-      if (!edition) {
+      if (!editionYear) {
         return;
       }
 
-      counts.set(edition, (counts.get(edition) || 0) + 1);
+      counts.set(editionYear, (counts.get(editionYear) || 0) + 1);
     });
 
     return counts;
   }, [allRegistrations]);
 
-  const duplicateYears = useMemo(() => {
-    const counts = new Map();
-
-    availableEditions.forEach((edition) => {
-      const year = getEditionYear(edition);
-      counts.set(year, (counts.get(year) || 0) + 1);
-    });
-
-    return counts;
-  }, [availableEditions]);
-
   useEffect(() => {
-    if (availableEditions.length === 0) {
+    if (availableEditionYears.length === 0) {
       return;
     }
 
-    const preferredEdition = availableEditions.includes(config.onsiteActiveEdition)
-      ? config.onsiteActiveEdition
-      : availableEditions[0];
+    const activeEditionYear = getEditionYear(config.onsiteActiveEdition);
+    const preferredEditionYear = availableEditionYears.includes(activeEditionYear)
+      ? activeEditionYear
+      : availableEditionYears[0];
 
-    if (!selectedEdition || !availableEditions.includes(selectedEdition)) {
-      setSelectedEdition(preferredEdition);
+    if (
+      !selectedEditionYear ||
+      !availableEditionYears.includes(selectedEditionYear)
+    ) {
+      setSelectedEditionYear(preferredEditionYear);
     }
-  }, [availableEditions, config.onsiteActiveEdition, selectedEdition]);
+  }, [availableEditionYears, config.onsiteActiveEdition, selectedEditionYear]);
 
   const registrations = useMemo(() => {
     return allRegistrations.filter(
-      (registration) => registration.eventEdition === selectedEdition
+      (registration) => getEditionYear(registration.eventEdition) === selectedEditionYear
     );
-  }, [allRegistrations, selectedEdition]);
+  }, [allRegistrations, selectedEditionYear]);
 
-  const editionYear = getEditionYear(
-    selectedEdition || availableEditions[0] || config.onsiteActiveEdition
-  );
+  const editionYear =
+    selectedEditionYear ||
+    availableEditionYears[0] ||
+    getEditionYear(config.onsiteActiveEdition);
 
   const stats = useMemo(() => {
     const total = registrations.length;
@@ -195,15 +179,8 @@ function StatsPage() {
 
   const COLORS = ["#4f46e5", "#22c55e", "#f59e0b", "#ef4444"];
 
-  const formatEditionOptionLabel = (edition) => {
-    const year = getEditionYear(edition);
-    const count = editionCounts.get(edition) || 0;
-    const hasDuplicateYear = (duplicateYears.get(year) || 0) > 1;
-
-    if (hasDuplicateYear) {
-      return `City Jogging ${year} - ${edition} (${count} inscrits)`;
-    }
-
+  const formatEditionOptionLabel = (year) => {
+    const count = editionYearCounts.get(year) || 0;
     return `City Jogging ${year} (${count} inscrits)`;
   };
 
@@ -221,13 +198,13 @@ function StatsPage() {
           <label style={styles.selectGroup}>
             <span style={styles.selectLabel}>Edition affichee</span>
             <select
-              value={selectedEdition}
-              onChange={(event) => setSelectedEdition(event.target.value)}
+              value={selectedEditionYear}
+              onChange={(event) => setSelectedEditionYear(event.target.value)}
               style={styles.select}
             >
-              {availableEditions.map((edition) => (
-                <option key={edition} value={edition}>
-                  {formatEditionOptionLabel(edition)}
+              {availableEditionYears.map((year) => (
+                <option key={year} value={year}>
+                  {formatEditionOptionLabel(year)}
                 </option>
               ))}
             </select>
