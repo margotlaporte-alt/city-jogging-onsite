@@ -5,7 +5,7 @@ import { db } from "../services/firebase";
 import {
   DEFAULT_APP_CONFIG,
   getEditionYear,
-  loadAppConfig
+  subscribeToAppConfig
 } from "../services/appConfig";
 import {
   PieChart,
@@ -22,33 +22,22 @@ import {
 } from "recharts";
 
 function StatsPage() {
-  const [registrations, setRegistrations] = useState([]);
-  const [activeEdition, setActiveEdition] = useState(
-    DEFAULT_APP_CONFIG.onsiteActiveEdition
-  );
-  const editionYear = getEditionYear(activeEdition);
+  const [allRegistrations, setAllRegistrations] = useState([]);
+  const [config, setConfig] = useState(DEFAULT_APP_CONFIG);
+  const [selectedEdition, setSelectedEdition] = useState("");
 
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchConfig = async () => {
-      try {
-        const config = await loadAppConfig();
-
-        if (!isMounted) {
-          return;
-        }
-
-        setActiveEdition(config.onsiteActiveEdition);
-      } catch (error) {
+    const unsubscribe = subscribeToAppConfig(
+      (nextConfig) => {
+        setConfig(nextConfig);
+      },
+      (error) => {
         console.error("Erreur chargement edition stats :", error);
       }
-    };
-
-    fetchConfig();
+    );
 
     return () => {
-      isMounted = false;
+      unsubscribe();
     };
   }, []);
 
@@ -56,18 +45,62 @@ function StatsPage() {
     const unsubscribe = onSnapshot(
       collection(db, "onsite_registrations"),
       (snapshot) => {
-        const data = snapshot.docs
-          .map((doc) => ({
+        setAllRegistrations(
+          snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data()
           }))
-          .filter((registration) => registration.eventEdition === activeEdition);
-        setRegistrations(data);
+        );
       }
     );
 
     return () => unsubscribe();
-  }, [activeEdition]);
+  }, []);
+
+  const availableEditions = useMemo(() => {
+    const uniqueEditions = new Set(
+      allRegistrations
+        .map((registration) => String(registration.eventEdition || "").trim())
+        .filter(Boolean)
+    );
+
+    uniqueEditions.add(config.onsiteActiveEdition);
+    uniqueEditions.add(config.importTargetEdition);
+
+    return Array.from(uniqueEditions).sort((leftEdition, rightEdition) => {
+      const leftYear = Number(getEditionYear(leftEdition)) || 0;
+      const rightYear = Number(getEditionYear(rightEdition)) || 0;
+
+      if (leftYear !== rightYear) {
+        return rightYear - leftYear;
+      }
+
+      return rightEdition.localeCompare(leftEdition, undefined, {
+        numeric: true,
+        sensitivity: "base"
+      });
+    });
+  }, [allRegistrations, config.importTargetEdition, config.onsiteActiveEdition]);
+
+  useEffect(() => {
+    if (availableEditions.length === 0) {
+      return;
+    }
+
+    if (!selectedEdition || !availableEditions.includes(selectedEdition)) {
+      setSelectedEdition(availableEditions[0]);
+    }
+  }, [availableEditions, selectedEdition]);
+
+  const registrations = useMemo(() => {
+    return allRegistrations.filter(
+      (registration) => registration.eventEdition === selectedEdition
+    );
+  }, [allRegistrations, selectedEdition]);
+
+  const editionYear = getEditionYear(
+    selectedEdition || availableEditions[0] || config.onsiteActiveEdition
+  );
 
   const stats = useMemo(() => {
     const total = registrations.length;
@@ -141,9 +174,26 @@ function StatsPage() {
           </p>
         </div>
 
-        <Link to="/guichet" style={styles.backLink}>
-          Retour espace organisateur
-        </Link>
+        <div style={styles.topBarActions}>
+          <label style={styles.selectGroup}>
+            <span style={styles.selectLabel}>Edition affichee</span>
+            <select
+              value={selectedEdition}
+              onChange={(event) => setSelectedEdition(event.target.value)}
+              style={styles.select}
+            >
+              {availableEditions.map((edition) => (
+                <option key={edition} value={edition}>
+                  City Jogging {getEditionYear(edition)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <Link to="/guichet" style={styles.backLink}>
+            Retour espace organisateur
+          </Link>
+        </div>
       </div>
 
       <div style={styles.kpiGrid}>
@@ -252,8 +302,9 @@ const styles = {
   page: {
     minHeight: "100vh",
     background: "#f4f7fb",
-    padding: "24px",
-    maxWidth: "1400px",
+    padding: "24px clamp(12px, 2vw, 28px)",
+    width: "100%",
+    maxWidth: "1800px",
     margin: "0 auto"
   },
   topBar: {
@@ -264,6 +315,13 @@ const styles = {
     marginBottom: "24px",
     flexWrap: "wrap"
   },
+  topBarActions: {
+    display: "flex",
+    alignItems: "flex-end",
+    gap: "12px",
+    flexWrap: "wrap",
+    justifyContent: "flex-end"
+  },
   title: {
     margin: 0,
     fontSize: "34px",
@@ -273,6 +331,24 @@ const styles = {
     margin: "6px 0 0 0",
     color: "#667085",
     fontSize: "15px"
+  },
+  selectGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px"
+  },
+  selectLabel: {
+    fontSize: "12px",
+    color: "#667085",
+    fontWeight: 600
+  },
+  select: {
+    border: "1px solid #d0d5dd",
+    borderRadius: "10px",
+    background: "white",
+    color: "#101828",
+    padding: "10px 12px",
+    minWidth: "190px"
   },
   backLink: {
     textDecoration: "none",
