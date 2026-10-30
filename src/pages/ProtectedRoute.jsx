@@ -7,6 +7,7 @@ import {
 } from "firebase/auth";
 import { auth } from "../services/firebase";
 import { isAdminEmail } from "../config/admin";
+import { getAuthErrorMessage } from "../services/authErrors";
 
 function ProtectedRoute({ children, requireAdmin = false }) {
   const [email, setEmail] = useState("");
@@ -35,7 +36,7 @@ function ProtectedRoute({ children, requireAdmin = false }) {
       setEmail("");
       setPassword("");
     } catch (err) {
-      setError("Identifiants incorrects.");
+      setError(getAuthErrorMessage(err));
       console.error(err);
     } finally {
       setIsLoading(false);

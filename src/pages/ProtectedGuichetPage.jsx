@@ -6,6 +6,7 @@ import {
   onAuthStateChanged
 } from "firebase/auth";
 import { auth } from "../services/firebase";
+import { getAuthErrorMessage } from "../services/authErrors";
 
 function ProtectedGuichetPage() {
   const [email, setEmail] = useState("");
@@ -33,8 +34,9 @@ function ProtectedGuichetPage() {
       await signInWithEmailAndPassword(auth, email, password);
       setEmail("");
       setPassword("");
-    } catch {
-      setError("Identifiants incorrects.");
+    } catch (err) {
+      setError(getAuthErrorMessage(err));
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
