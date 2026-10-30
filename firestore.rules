@@ -73,6 +73,13 @@ service cloud.firestore {
       allow update, delete: if isStaff();
     }
 
+    // Édition active et édition cible d'import (src/services/appConfig.js).
+    // La page publique doit pouvoir la lire sans connexion.
+    match /app_config/{docId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
     match /counters/{docId} {
       // Le compteur des codes d'inscription est utilisé par le formulaire
       // public sans connexion ; les autres compteurs restent au personnel.
