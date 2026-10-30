@@ -1,0 +1,89 @@
+rules_version = '2';
+
+// Règles Firestore de city-jogging-onsite.
+// Ce fichier n'est pas déployé automatiquement : copier son contenu dans
+// console Firebase > Firestore Database > Règles, puis « Publier ».
+//
+// La liste STAFF_EMAILS doit rester alignée avec USER_ROLES dans
+// src/config/admin.js (tous les rôles : admin et guichet).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isStaff() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in [
+          'margot.laporte@fla.lu',
+          'communication@fla.lu'
+        ];
+    }
+
+    match /onsite_registrations/{docId} {
+      // Données personnelles des inscrits : personnel uniquement.
+      allow read: if isStaff();
+
+      // Création ouverte pour le formulaire public (QR code), avec une
+      // liste fermée de champs. Le personnel passe par la même règle.
+      allow create: if
+        request.resource.data.keys().hasOnly([
+          'registrationCode',
+          'lastName',
+          'firstName',
+          'email',
+          'nationality',
+          'club',
+          'sex',
+          'birthDate',
+          'age',
+          'legalGuardian',
+          'participationType',
+          'distance',
+          'dataConsent',
+          'futureContactConsent',
+          'bibAssigned',
+          'bibNumber',
+          'originalBibNumber',
+          'status',
+          'source',
+          'eventEdition',
+          'isPreRegistered',
+          'bibReassigned',
+          'bibHistory',
+          'createdAt',
+          'preRegistrationBadge',
+          'externalRegistrationId',
+          'bibDeliveryMode',
+          'importedAt',
+          'importedFromFileName',
+          'rawCourseLabel',
+          'lastBibChangeAt'
+        ]) &&
+        request.resource.data.registrationCode is string &&
+        request.resource.data.lastName is string &&
+        request.resource.data.firstName is string &&
+        request.resource.data.nationality is string &&
+        request.resource.data.sex is string &&
+        request.resource.data.birthDate is string &&
+        request.resource.data.participationType is string &&
+        request.resource.data.distance is string &&
+        request.resource.data.dataConsent == true &&
+        request.resource.data.source in ['public-form', 'onsite-organizer', 'online-import'] &&
+        request.resource.data.eventEdition is string;
+
+      allow update, delete: if isStaff();
+    }
+
+    // Édition active et édition cible d'import (src/services/appConfig.js).
+    // La page publique doit pouvoir la lire sans connexion.
+    match /app_config/{docId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    match /counters/{docId} {
+      // Le compteur des codes d'inscription est utilisé par le formulaire
+      // public sans connexion ; les autres compteurs restent au personnel.
+      allow read, write: if isStaff() || docId == "onsiteRegistrationCounter";
+    }
+  }
+}

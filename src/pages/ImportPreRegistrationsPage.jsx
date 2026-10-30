@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { collection, doc, getDocs, query, setDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "../services/firebase";
+import OnsiteFormsImportSection from "../components/OnsiteFormsImportSection";
 import {
   DEFAULT_APP_CONFIG,
   getEditionYear,
@@ -455,6 +456,8 @@ function ConfigurationPage() {
             </button>
           </div>
         </div>
+
+        <OnsiteFormsImportSection styles={styles} />
 
         <div style={styles.notice}>
           Le bouton de bascule ne touche qu'à la configuration active. Les

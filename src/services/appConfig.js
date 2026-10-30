@@ -1,13 +1,17 @@
-import { httpsCallable } from "firebase/functions";
-import { functions } from "./firebase";
+import { doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
+import { auth, db } from "./firebase";
 
+// Valeurs utilisées tant que la config n'a jamais été enregistrée, ou si
+// sa lecture échoue.
 export const DEFAULT_APP_CONFIG = {
-  onsiteActiveEdition: "city-jogging-2025",
-  importTargetEdition: "city-jogging-2026"
+  onsiteActiveEdition: "city-jogging-2026",
+  importTargetEdition: "city-jogging-2027"
 };
 
-const getRuntimeAppConfigCallable = httpsCallable(functions, "getRuntimeAppConfig");
-const saveRuntimeAppConfigCallable = httpsCallable(functions, "saveRuntimeAppConfig");
+// La config est un document Firestore (lecture publique, écriture réservée
+// au personnel, voir firestore.rules). Elle passait avant par les Cloud
+// Functions getRuntimeAppConfig / saveRuntimeAppConfig, hors service.
+const configRef = doc(db, "app_config", "runtime");
 
 function normalizeEdition(value, fallbackValue) {
   const normalizedValue = String(value || "").trim();
@@ -28,48 +32,29 @@ export function sanitizeAppConfig(data = {}) {
 }
 
 export function subscribeToAppConfig(onValue, onError) {
-  let isActive = true;
-  let timeoutId = null;
-
-  const poll = async () => {
-    try {
-      const nextConfig = await loadAppConfig();
-
-      if (!isActive) {
-        return;
-      }
-
-      onValue(nextConfig);
-    } catch (error) {
-      if (isActive && onError) {
-        onError(error);
-      }
-    } finally {
-      if (isActive) {
-        timeoutId = window.setTimeout(poll, 5000);
-      }
-    }
-  };
-
-  poll();
-
-  return () => {
-    isActive = false;
-
-    if (timeoutId) {
-      window.clearTimeout(timeoutId);
-    }
-  };
+  return onSnapshot(
+    configRef,
+    (snapshot) => onValue(sanitizeAppConfig(snapshot.data() || {})),
+    onError
+  );
 }
 
 export async function loadAppConfig() {
-  const response = await getRuntimeAppConfigCallable();
-  return sanitizeAppConfig(response.data || {});
+  const snapshot = await getDoc(configRef);
+  return sanitizeAppConfig(snapshot.data() || {});
 }
 
 export async function saveAppConfig(partialConfig) {
-  const response = await saveRuntimeAppConfigCallable(partialConfig);
-  return sanitizeAppConfig(response.data || partialConfig);
+  const current = await loadAppConfig();
+  const nextConfig = sanitizeAppConfig({ ...current, ...partialConfig });
+
+  await setDoc(configRef, {
+    ...nextConfig,
+    updatedAt: new Date().toISOString(),
+    updatedBy: auth.currentUser?.email || ""
+  });
+
+  return nextConfig;
 }
 
 export function getEditionYear(edition) {

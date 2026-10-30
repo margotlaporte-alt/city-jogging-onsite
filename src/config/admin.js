@@ -2,6 +2,8 @@
 // - admin : accès à tout le backoffice (guichet, stats, configuration)
 // - guichet : accès au guichet et aux stats
 // Un compte connecté sans rôle n'a accès à aucune page du backoffice.
+// Ajouter ou retirer un email ici, c'est aussi le faire dans isStaff() de
+// firestore.rules puis republier les règles dans la console Firebase.
 export const ROLES = {
   ADMIN: "admin",
   GUICHET: "guichet"
