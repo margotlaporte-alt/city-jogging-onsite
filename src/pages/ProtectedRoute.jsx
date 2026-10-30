@@ -6,9 +6,10 @@ import {
   onAuthStateChanged
 } from "firebase/auth";
 import { auth } from "../services/firebase";
-import { isAdminEmail } from "../config/admin";
+import { ROLES, hasRole } from "../config/admin";
+import { getAuthErrorMessage } from "../services/authErrors";
 
-function ProtectedRoute({ children, requireAdmin = false }) {
+function ProtectedRoute({ children, requiredRole = ROLES.GUICHET }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState(null);
@@ -35,7 +36,7 @@ function ProtectedRoute({ children, requireAdmin = false }) {
       setEmail("");
       setPassword("");
     } catch (err) {
-      setError("Identifiants incorrects.");
+      setError(getAuthErrorMessage(err));
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -104,19 +105,30 @@ function ProtectedRoute({ children, requireAdmin = false }) {
     );
   }
 
-  if (requireAdmin && !isAdminEmail(user.email)) {
+  if (!hasRole(user.email, requiredRole)) {
+    const canUseGuichet = hasRole(user.email, ROLES.GUICHET);
+
     return (
       <div style={styles.page}>
         <div style={styles.card}>
-          <h1 style={styles.title}>Accès administrateur requis</h1>
+          <h1 style={styles.title}>
+            {canUseGuichet ? "Accès administrateur requis" : "Accès non autorisé"}
+          </h1>
           <p style={styles.subtitle}>
-            Cette page est réservée aux comptes administrateurs configurés dans
-            l’application.
+            {canUseGuichet
+              ? "Cette page est réservée aux comptes administrateurs configurés dans l’application."
+              : `Le compte ${user.email} n’a aucun rôle dans le backoffice. Contacte un administrateur pour obtenir un accès.`}
           </p>
           <div style={styles.actions}>
-            <Link to="/guichet" style={styles.secondaryButton}>
-              Revenir au guichet
-            </Link>
+            {canUseGuichet ? (
+              <Link to="/guichet" style={styles.secondaryButton}>
+                Revenir au guichet
+              </Link>
+            ) : (
+              <Link to="/" style={styles.secondaryButton}>
+                Retour à la page publique
+              </Link>
+            )}
             <button onClick={handleLogout} style={styles.button}>
               Se déconnecter
             </button>

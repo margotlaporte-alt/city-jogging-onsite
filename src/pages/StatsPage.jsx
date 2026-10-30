@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { Link } from "react-router-dom";
 import { db } from "../services/firebase";
+import { buildStatsReport, downloadBlob } from "../services/statsReport";
 import {
   DEFAULT_APP_CONFIG,
   getEditionYear,
@@ -21,10 +22,78 @@ import {
   Legend
 } from "recharts";
 
+function computeStats(registrations) {
+  const total = registrations.length;
+  const men = registrations.filter((r) => r.sex === "male").length;
+  const women = registrations.filter((r) => r.sex === "female").length;
+  const onsiteDayRegistrations = registrations.filter(
+    (r) => r.source === "public-form" || r.source === "onsite-organizer"
+  );
+  const onsiteDayTotal = onsiteDayRegistrations.length;
+  const importTotal = registrations.filter((r) => r.source === "online-import").length;
+  const publicOnsiteTotal = onsiteDayRegistrations.filter(
+    (r) => r.source === "public-form"
+  ).length;
+  const organizerOnsiteTotal = onsiteDayRegistrations.filter(
+    (r) => r.source === "onsite-organizer"
+  ).length;
+
+  const run = registrations.filter((r) => r.participationType === "run").length;
+  const walk = registrations.filter((r) => r.participationType === "nordic_walk").length;
+  const kids = registrations.filter((r) => r.participationType === "kids_jogging").length;
+
+  const bibAssigned = registrations.filter((r) => r.bibAssigned).length;
+  const bibPending = registrations.filter((r) => !r.bibAssigned).length;
+
+  const byDistanceMap = {};
+  registrations.forEach((r) => {
+    const key = r.distance || "Autre";
+    byDistanceMap[key] = (byDistanceMap[key] || 0) + 1;
+  });
+
+  const distanceData = Object.entries(byDistanceMap).map(([name, value]) => ({
+    name,
+    value
+  }));
+
+  return {
+    total,
+    men,
+    women,
+    onsiteDayTotal,
+    importTotal,
+    publicOnsiteTotal,
+    organizerOnsiteTotal,
+    run,
+    walk,
+    kids,
+    bibAssigned,
+    bibPending,
+    distanceData
+  };
+}
+
+function getSexData(stats) {
+  return [
+    { name: "Hommes", value: stats.men },
+    { name: "Femmes", value: stats.women }
+  ];
+}
+
+function getTypeData(stats) {
+  return [
+    { name: "Course", value: stats.run },
+    { name: "Marche", value: stats.walk },
+    { name: "Kids", value: stats.kids }
+  ];
+}
+
 function StatsPage() {
   const [allRegistrations, setAllRegistrations] = useState([]);
   const [config, setConfig] = useState(DEFAULT_APP_CONFIG);
   const [selectedEditionYear, setSelectedEditionYear] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
 
   useEffect(() => {
     const unsubscribe = subscribeToAppConfig(
@@ -117,68 +186,35 @@ function StatsPage() {
     availableEditionYears[0] ||
     getEditionYear(config.onsiteActiveEdition);
 
-  const stats = useMemo(() => {
-    const total = registrations.length;
-    const men = registrations.filter((r) => r.sex === "male").length;
-    const women = registrations.filter((r) => r.sex === "female").length;
-    const onsiteDayRegistrations = registrations.filter(
-      (r) => r.source === "public-form" || r.source === "onsite-organizer"
-    );
-    const onsiteDayTotal = onsiteDayRegistrations.length;
-    const publicOnsiteTotal = onsiteDayRegistrations.filter(
-      (r) => r.source === "public-form"
-    ).length;
-    const organizerOnsiteTotal = onsiteDayRegistrations.filter(
-      (r) => r.source === "onsite-organizer"
-    ).length;
+  const stats = useMemo(() => computeStats(registrations), [registrations]);
 
-    const run = registrations.filter((r) => r.participationType === "run").length;
-    const walk = registrations.filter((r) => r.participationType === "nordic_walk").length;
-    const kids = registrations.filter((r) => r.participationType === "kids_jogging").length;
-
-    const bibAssigned = registrations.filter((r) => r.bibAssigned).length;
-    const bibPending = registrations.filter((r) => !r.bibAssigned).length;
-
-    const byDistanceMap = {};
-    registrations.forEach((r) => {
-      const key = r.distance || "Autre";
-      byDistanceMap[key] = (byDistanceMap[key] || 0) + 1;
-    });
-
-    const distanceData = Object.entries(byDistanceMap).map(([name, value]) => ({
-      name,
-      value
-    }));
-
-    return {
-      total,
-      men,
-      women,
-      onsiteDayTotal,
-      publicOnsiteTotal,
-      organizerOnsiteTotal,
-      run,
-      walk,
-      kids,
-      bibAssigned,
-      bibPending,
-      distanceData
-    };
-  }, [registrations]);
-
-  const sexData = [
-    { name: "Hommes", value: stats.men },
-    { name: "Femmes", value: stats.women }
-  ];
-
-  const typeData = [
-    { name: "Course", value: stats.run },
-    { name: "Marche", value: stats.walk },
-    { name: "Kids", value: stats.kids }
-  ];
+  const sexData = getSexData(stats);
+  const typeData = getTypeData(stats);
 
   const COLORS = ["#4f46e5", "#22c55e", "#f59e0b", "#ef4444"];
 
+  const handleExportReport = async () => {
+    setExportError("");
+    setIsExporting(true);
+
+    try {
+      // Le rapport ne compte que les inscriptions avec dossard attribué :
+      // celles en attente sont le plus souvent des doublons.
+      const reportStats = computeStats(registrations.filter((r) => r.bibAssigned));
+      const blob = await buildStatsReport({
+        editionYear,
+        stats: reportStats,
+        sexData: getSexData(reportStats),
+        typeData: getTypeData(reportStats)
+      });
+      downloadBlob(blob, `Statistiques City Jogging ${editionYear}.docx`);
+    } catch (error) {
+      console.error("Erreur export rapport stats :", error);
+      setExportError("L'export Word a échoué.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
   const formatEditionOptionLabel = (year) => {
     const count = editionYearCounts.get(year) || 0;
     return `City Jogging ${year} (${count} inscrits)`;
@@ -209,6 +245,17 @@ function StatsPage() {
               ))}
             </select>
           </label>
+
+          <button
+            type="button"
+            onClick={handleExportReport}
+            disabled={isExporting || !editionYear}
+            style={styles.exportButton}
+          >
+            {isExporting ? "Export en cours..." : "Exporter en Word"}
+          </button>
+
+          {exportError && <span style={styles.exportError}>{exportError}</span>}
 
           <Link to="/guichet" style={styles.backLink}>
             Retour espace organisateur
@@ -369,6 +416,21 @@ const styles = {
     color: "#101828",
     padding: "10px 12px",
     minWidth: "190px"
+  },
+  exportButton: {
+    border: "1px solid #d0d5dd",
+    background: "white",
+    color: "#111827",
+    padding: "10px 14px",
+    borderRadius: "10px",
+    fontWeight: 600,
+    fontSize: "14px",
+    cursor: "pointer"
+  },
+  exportError: {
+    color: "#b42318",
+    fontSize: "13px",
+    alignSelf: "center"
   },
   backLink: {
     textDecoration: "none",

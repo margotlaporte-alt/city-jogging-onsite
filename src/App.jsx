@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./pages/ProtectedRoute";
+import { ROLES } from "./config/admin";
 import GuichetPage from "./pages/GuichetPage";
 import ImportPreRegistrationsPage from "./pages/ImportPreRegistrationsPage";
 import StatsPage from "./pages/StatsPage";
@@ -25,7 +26,7 @@ function App() {
           <Route
             path="/configuration"
             element={
-              <ProtectedRoute requireAdmin>
+              <ProtectedRoute requiredRole={ROLES.ADMIN}>
                 <ImportPreRegistrationsPage />
               </ProtectedRoute>
             }
