@@ -4,18 +4,49 @@ rules_version = '2';
 // Ce fichier n'est pas déployé automatiquement : copier son contenu dans
 // console Firebase > Firestore Database > Règles, puis « Publier ».
 //
-// La liste STAFF_EMAILS doit rester alignée avec USER_ROLES dans
-// src/config/admin.js (tous les rôles : admin et guichet).
+// Les rôles sont gérés dans l'app (page Équipe) : staff_roles/{email}
+// avec role = "admin" ou "guichet". Seuls les propriétaires sont listés
+// ici ; la liste doit rester alignée avec OWNER_EMAILS dans
+// src/config/admin.js.
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function userEmail() {
+      return request.auth != null && 'email' in request.auth.token
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    function isOwner() {
+      return userEmail() in ['margot.laporte@fla.lu', 'communication@fla.lu'];
+    }
+
+    function roleDoc() {
+      return /databases/$(database)/documents/staff_roles/$(userEmail());
+    }
+
+    function hasStoredRole(roles) {
+      return userEmail() != '' && exists(roleDoc()) && get(roleDoc()).data.role in roles;
+    }
+
+    function isAdmin() {
+      return isOwner() || hasStoredRole(['admin']);
+    }
+
     function isStaff() {
-      return request.auth != null
-        && request.auth.token.email != null
-        && request.auth.token.email.lower() in [
-          'margot.laporte@fla.lu',
-          'communication@fla.lu'
-        ];
+      return isOwner() || hasStoredRole(['admin', 'guichet']);
+    }
+
+    match /staff_roles/{email} {
+      // Chacun peut lire son propre rôle ; les admins voient toute l'équipe.
+      allow read: if isAdmin() || email == userEmail();
+
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['email', 'role', 'updatedAt', 'updatedBy'])
+        && request.resource.data.email == email
+        && request.resource.data.role in ['admin', 'guichet'];
+
+      allow delete: if isAdmin();
     }
 
     match /onsite_registrations/{docId} {

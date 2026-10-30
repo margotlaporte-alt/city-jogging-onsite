@@ -6,24 +6,44 @@ import {
   onAuthStateChanged
 } from "firebase/auth";
 import { auth } from "../services/firebase";
-import { ROLES, hasRole } from "../config/admin";
+import { ROLES, fetchUserRole, roleSatisfies } from "../config/admin";
 import { getAuthErrorMessage } from "../services/authErrors";
 
 function ProtectedRoute({ children, requiredRole = ROLES.GUICHET }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState(null);
+  const [role, setRole] = useState(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    let isActive = true;
+
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setIsCheckingAuth(true);
+      let nextRole = null;
+
+      if (currentUser) {
+        try {
+          nextRole = await fetchUserRole(currentUser.email);
+        } catch (err) {
+          console.error("Erreur chargement du rôle :", err);
+        }
+      }
+
+      if (!isActive) return;
+
       setUser(currentUser);
+      setRole(nextRole);
       setIsCheckingAuth(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e) => {
@@ -105,8 +125,8 @@ function ProtectedRoute({ children, requiredRole = ROLES.GUICHET }) {
     );
   }
 
-  if (!hasRole(user.email, requiredRole)) {
-    const canUseGuichet = hasRole(user.email, ROLES.GUICHET);
+  if (!roleSatisfies(role, requiredRole)) {
+    const canUseGuichet = roleSatisfies(role, ROLES.GUICHET);
 
     return (
       <div style={styles.page}>
@@ -116,7 +136,7 @@ function ProtectedRoute({ children, requiredRole = ROLES.GUICHET }) {
           </h1>
           <p style={styles.subtitle}>
             {canUseGuichet
-              ? "Cette page est réservée aux comptes administrateurs configurés dans l’application."
+              ? "Cette page est réservée aux administrateurs. Un admin peut changer ton rôle dans la page Équipe."
               : `Le compte ${user.email} n’a aucun rôle dans le backoffice. Contacte un administrateur pour obtenir un accès.`}
           </p>
           <div style={styles.actions}>

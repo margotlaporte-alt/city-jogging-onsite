@@ -19,7 +19,7 @@ import {
   DEFAULT_APP_CONFIG,
   loadAppConfig
 } from "../services/appConfig";
-import { isAdminEmail } from "../config/admin";
+import { ROLES, fetchUserRole } from "../config/admin";
 
 const ALL_VIEW_PAGE_SIZE = 100;
 
@@ -87,7 +87,9 @@ function GuichetPage() {
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      setCanAccessConfiguration(isAdminEmail(currentUser?.email));
+      fetchUserRole(currentUser?.email)
+        .then((role) => setCanAccessConfiguration(role === ROLES.ADMIN))
+        .catch(() => setCanAccessConfiguration(false));
     });
 
     return () => unsubscribeAuth();
@@ -1370,6 +1372,15 @@ function GuichetPage() {
                 onClick={() => navigate("/configuration")}
               >
                 Configuration
+              </button>
+            )}
+
+            {canAccessConfiguration && (
+              <button
+                style={styles.menuButton}
+                onClick={() => navigate("/equipe")}
+              >
+                Équipe
               </button>
             )}
 
