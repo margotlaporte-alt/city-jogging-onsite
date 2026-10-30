@@ -5,6 +5,7 @@ import { ROLES } from "./config/admin";
 import GuichetPage from "./pages/GuichetPage";
 import ImportPreRegistrationsPage from "./pages/ImportPreRegistrationsPage";
 import StatsPage from "./pages/StatsPage";
+import TeamPage from "./pages/TeamPage";
 import PublicRegistrationPage from "./pages/PublicRegistrationPage";
 
 function App() {
@@ -28,6 +29,15 @@ function App() {
             element={
               <ProtectedRoute requiredRole={ROLES.ADMIN}>
                 <ImportPreRegistrationsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/equipe"
+            element={
+              <ProtectedRoute requiredRole={ROLES.ADMIN}>
+                <TeamPage />
               </ProtectedRoute>
             }
           />
